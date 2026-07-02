@@ -37,6 +37,20 @@ Belangrijke AI-kansen:
 - Instellingen
 - Abonnement en pakketbeheer
 
+## Module-notities
+
+### Facturen
+
+De factuurmodule ondersteunt een eerste professionele aanmaakflow met klantkeuze, automatisch factuurnummer, factuurdatum, vervaldatum, betalingstermijn, status, factuurregels, BTW-keuze, subtotalen en PDF-preview. De flow bevat ook een AI-check voor verplichte velden, BTW en betaaltermijn.
+
+Volgende uitbreidingen:
+
+- Factuur opslaan in state/backend
+- PDF genereren
+- Betaling registreren
+- Herinneringen automatisch voorbereiden
+- AI-voorstel voor factuurregels op basis van klant, offerte of uren
+
 ## SaaS-architectuur
 
 De app is voorbereid op multi-tenant gebruik. Alle demo-entiteiten bevatten een `companyId`, zodat iedere administratie gekoppeld kan worden aan een bedrijf.

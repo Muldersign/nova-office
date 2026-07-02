@@ -546,6 +546,10 @@ function Invoices({ onCreate }: { onCreate: () => void }) {
 
 function InvoiceCreate({ rows, total, onRowsChange, onBack }: { rows: InvoiceRow[]; total: number; onRowsChange: (rows: InvoiceRow[]) => void; onBack: () => void }) {
   const addRow = () => onRowsChange([...rows, { description: 'Nieuwe regel', quantity: 1, price: 0, vat: 21 }])
+  const subtotal = rows.reduce((sum, row) => sum + row.quantity * row.price, 0)
+  const vatTotal = total - subtotal
+  const removeRow = (index: number) => onRowsChange(rows.filter((_, rowIndex) => rowIndex !== index))
+
   return (
     <div className="invoice-builder">
       <section className="panel">
@@ -556,6 +560,23 @@ function InvoiceCreate({ rows, total, onRowsChange, onBack }: { rows: InvoiceRow
           <label>Factuurnummer<input defaultValue="2026-0143" /></label>
           <label>Factuurdatum<input type="date" defaultValue="2026-07-02" /></label>
           <label>Vervaldatum<input type="date" defaultValue="2026-07-16" /></label>
+          <label>Betalingstermijn<select defaultValue="14 dagen"><option>7 dagen</option><option>14 dagen</option><option>30 dagen</option></select></label>
+          <label>Status<select defaultValue="Concept"><option>Concept</option><option>Verzonden</option><option>Betaald</option></select></label>
+        </div>
+        <div className="ai-check">
+          <Sparkles size={17} />
+          <div>
+            <strong>AI-check actief</strong>
+            <span>NOVA controleert BTW, verplichte velden en betaaltermijn voordat je verzendt.</span>
+          </div>
+        </div>
+        <div className="line-header">
+          <span>Omschrijving</span>
+          <span>Aantal</span>
+          <span>Prijs</span>
+          <span>BTW</span>
+          <span>Totaal</span>
+          <span></span>
         </div>
         <div className="line-items">
           {rows.map((row, index) => (
@@ -564,16 +585,37 @@ function InvoiceCreate({ rows, total, onRowsChange, onBack }: { rows: InvoiceRow
               <input type="number" value={row.quantity} onChange={(event) => updateRow(rows, onRowsChange, index, 'quantity', Number(event.target.value))} />
               <input type="number" value={row.price} onChange={(event) => updateRow(rows, onRowsChange, index, 'price', Number(event.target.value))} />
               <select value={row.vat} onChange={(event) => updateRow(rows, onRowsChange, index, 'vat', Number(event.target.value))}><option value={21}>21%</option><option value={9}>9%</option><option value={0}>0%</option></select>
+              <strong>{eur.format(row.quantity * row.price * (1 + row.vat / 100))}</strong>
+              <button className="icon-button compact" onClick={() => removeRow(index)} aria-label="Regel verwijderen"><X size={16} /></button>
             </div>
           ))}
         </div>
-        <button className="ghost" onClick={addRow}><Plus size={17} /> Regel toevoegen</button>
+        <div className="invoice-actions">
+          <button className="ghost" onClick={addRow}><Plus size={17} /> Regel toevoegen</button>
+          <button className="ghost"><Bot size={17} /> Regels laten aanvullen</button>
+        </div>
       </section>
       <aside className="panel preview">
         <p className="eyebrow">PDF-preview</p>
         <h2>Factuur 2026-0143</h2>
-        <div className="preview-total">{eur.format(total)}</div>
-        <span>Concept</span>
+        <div className="preview-meta">
+          <span>Studio Veldkamp</span>
+          <span>Vervalt op 16 juli 2026</span>
+        </div>
+        <div className="preview-lines">
+          {rows.map((row, index) => (
+            <span key={`${row.description}-preview-${index}`}>
+              <small>{row.description}</small>
+              <strong>{eur.format(row.quantity * row.price)}</strong>
+            </span>
+          ))}
+        </div>
+        <div className="invoice-summary">
+          <span>Subtotaal<strong>{eur.format(subtotal)}</strong></span>
+          <span>BTW<strong>{eur.format(vatTotal)}</strong></span>
+          <span className="summary-total">Totaal<strong>{eur.format(total)}</strong></span>
+        </div>
+        <Status label="Concept" />
         <button className="primary full">Factuur verzenden</button>
       </aside>
     </div>
