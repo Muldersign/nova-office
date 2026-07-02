@@ -16,6 +16,7 @@ Scope:
 - Klantenoverzicht, klantdetail, klant toevoegen en klant bewerken
 - Factuuroverzicht, factuur aanmaken, factuurdetail en status wijzigen
 - Offerteoverzicht, offerte aanmaken, offertedetail en offerte omzetten naar factuur
+- Globaal zoeken, statusfilters, lege-resultaten-states en snelle betalingregistratie
 - Databasecontract voor de fundering
 - Rollen- en rechtenstructuur
 - Design-system/componentenbasis

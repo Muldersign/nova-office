@@ -442,6 +442,7 @@ function App() {
   const [selectedQuote, setSelectedQuote] = useState(quotes[0].id)
   const [editingCustomerId, setEditingCustomerId] = useState<string | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [globalSearch, setGlobalSearch] = useState('')
   const [invoiceRows, setInvoiceRows] = useState([
     { description: 'Adviespakket Groei', quantity: 1, price: 1250, vat: 21 },
     { description: 'Maandelijkse support', quantity: 1, price: 395, vat: 21 },
@@ -467,6 +468,9 @@ function App() {
   const companyInvoices = invoiceRecords.filter((invoice) => invoice.companyId === activeCompanyId)
   const companyQuotes = quoteRecords.filter((quote) => quote.companyId === activeCompanyId)
   const companyAuditEvents = auditRecords.filter((event) => event.companyId === activeCompanyId)
+  const filteredCustomers = companyCustomers.filter((customer) => customerMatches(customer, globalSearch))
+  const filteredInvoices = companyInvoices.filter((invoice) => invoiceMatches(invoice, companyCustomers, globalSearch))
+  const filteredQuotes = companyQuotes.filter((quote) => quoteMatches(quote, companyCustomers, globalSearch))
   const activeCompany = companies.find((company) => company.id === activeCompanyId) ?? companies[0]
   const currentCustomer = companyCustomers.find((customer) => customer.id === selectedCustomer) ?? companyCustomers[0] ?? customers[0]
   const currentInvoice = companyInvoices.find((invoice) => invoice.id === selectedInvoice) ?? companyInvoices[0]
@@ -572,6 +576,14 @@ function App() {
     }
   }
 
+  const updateQuoteStatus = (quoteId: string, status: QuoteStatus) => {
+    const quote = quoteRecords.find((record) => record.id === quoteId)
+    setQuoteRecords((records) => records.map((record) => (record.id === quoteId ? { ...record, status } : record)))
+    if (quote) {
+      appendAudit(quote.companyId, `Offerte ${quote.number} gemarkeerd als ${status.toLowerCase()}`, 'quote', quote.id)
+    }
+  }
+
   const convertQuoteToInvoice = (quote: Quote) => {
     const invoice: Invoice = {
       id: `inv_${Date.now()}`,
@@ -613,6 +625,13 @@ function App() {
     }
 
     window.localStorage.setItem('nova.workspace.lastExport', JSON.stringify(payload))
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
+    const url = window.URL.createObjectURL(blob)
+    const link = document.createElement('a')
+    link.href = url
+    link.download = `nova-office-export-${todayIso()}.json`
+    link.click()
+    window.URL.revokeObjectURL(url)
     appendAudit(activeCompanyId, 'Werkruimte-export voorbereid', 'settings', activeCompanyId)
   }
 
@@ -657,7 +676,7 @@ function App() {
           <div className="topbar-actions">
             <div className="search">
               <Search size={17} />
-              <input placeholder="Zoek klanten, facturen of offertes" />
+              <input value={globalSearch} onChange={(event) => setGlobalSearch(event.target.value)} placeholder="Zoek klanten, facturen of offertes" />
             </div>
             <button className="icon-button" aria-label="Meldingen">
               <Bell size={19} />
@@ -677,16 +696,16 @@ function App() {
         {screen === 'dashboard' && (
           <Dashboard
             metrics={metrics}
-            dashboardCustomers={companyCustomers}
-            dashboardInvoices={companyInvoices}
-            dashboardQuotes={companyQuotes}
+            dashboardCustomers={filteredCustomers}
+            dashboardInvoices={filteredInvoices}
+            dashboardQuotes={filteredQuotes}
             auditEvents={companyAuditEvents}
             onNavigate={navigate}
           />
         )}
         {screen === 'customers' && (
           <Customers
-            customers={companyCustomers}
+            customers={filteredCustomers}
             onAdd={() => {
               setEditingCustomerId(null)
               navigate('customer-form')
@@ -720,8 +739,10 @@ function App() {
         {screen === 'invoices' && (
           <Invoices
             invoices={companyInvoices}
+            visibleInvoices={filteredInvoices}
             customers={companyCustomers}
             onCreate={() => navigate('invoice-create')}
+            onMarkPaid={(id) => updateInvoiceStatus(id, 'Betaald')}
             onSelect={(id) => {
               setSelectedInvoice(id)
               navigate('invoice-detail')
@@ -746,6 +767,7 @@ function App() {
         {screen === 'quotes' && (
           <Quotes
             quotes={companyQuotes}
+            visibleQuotes={filteredQuotes}
             customers={companyCustomers}
             onCreate={() => navigate('quote-create')}
             onSelect={(id) => {
@@ -764,7 +786,7 @@ function App() {
           />
         )}
         {screen === 'quote-detail' && currentQuote && (
-          <QuoteDetail quote={currentQuote} customers={companyCustomers} onBack={() => navigate('quotes')} onConvert={convertQuoteToInvoice} />
+          <QuoteDetail quote={currentQuote} customers={companyCustomers} onBack={() => navigate('quotes')} onConvert={convertQuoteToInvoice} onStatusChange={updateQuoteStatus} />
         )}
         {screen === 'companies' && <Companies activeCompanyId={activeCompanyId} onSelect={setActiveCompanyId} />}
         {screen === 'roles' && <Roles />}
@@ -1056,24 +1078,39 @@ function CustomerDetail({
 
 function Invoices({
   invoices,
+  visibleInvoices,
   customers,
   onCreate,
+  onMarkPaid,
   onSelect,
 }: {
   invoices: Invoice[]
+  visibleInvoices: Invoice[]
   customers: Customer[]
   onCreate: () => void
+  onMarkPaid: (id: string) => void
   onSelect: (id: string) => void
 }) {
+  const [statusFilter, setStatusFilter] = useState<'Alle statussen' | InvoiceStatus>('Alle statussen')
+  const rows = visibleInvoices.filter((invoice) => statusFilter === 'Alle statussen' || invoice.status === statusFilter)
+
   return (
     <section className="panel">
       <PanelHeader title="Factuuroverzicht" action="Nieuwe factuur" onAction={onCreate} />
       <div className="filters">
-        <span>Alle statussen</span><span>Deze maand</span><span>Zoeken op klant of nummer</span>
+        <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as 'Alle statussen' | InvoiceStatus)}>
+          <option>Alle statussen</option>
+          <option>Concept</option>
+          <option>Verzonden</option>
+          <option>Betaald</option>
+          <option>Verlopen</option>
+        </select>
+        <span>{rows.length} van {invoices.length} facturen</span>
+        <span>Zoeken via de balk bovenin</span>
       </div>
       <DataTable
         columns={['Factuur', 'Klant', 'Datum', 'Vervaldatum', 'Bedrag', 'BTW', 'Status', 'Actie']}
-        rows={invoices.map((invoice) => [
+        rows={rows.map((invoice) => [
           invoice.number,
           nameFor(invoice.customerId, customers),
           invoice.date,
@@ -1081,7 +1118,10 @@ function Invoices({
           eur.format(invoice.amount),
           eur.format(invoice.vat),
           <Status key={invoice.id} label={invoice.status} />,
-          <button key={invoice.id} className="table-link" onClick={() => onSelect(invoice.id)}>Openen</button>,
+          <div key={invoice.id} className="table-actions">
+            <button className="table-link" onClick={() => onSelect(invoice.id)}>Openen</button>
+            {invoice.status !== 'Betaald' && <button className="table-link" onClick={() => onMarkPaid(invoice.id)}>Betaald</button>}
+          </div>,
         ])}
       />
     </section>
@@ -1256,21 +1296,37 @@ function InvoiceDetail({
 
 function Quotes({
   quotes,
+  visibleQuotes,
   customers,
   onCreate,
   onSelect,
 }: {
   quotes: Quote[]
+  visibleQuotes: Quote[]
   customers: Customer[]
   onCreate: () => void
   onSelect: (id: string) => void
 }) {
+  const [statusFilter, setStatusFilter] = useState<'Alle statussen' | QuoteStatus>('Alle statussen')
+  const rows = visibleQuotes.filter((quote) => statusFilter === 'Alle statussen' || quote.status === statusFilter)
+
   return (
     <section className="panel">
       <PanelHeader title="Offerte overzicht" action="Nieuwe offerte" onAction={onCreate} />
+      <div className="filters">
+        <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as 'Alle statussen' | QuoteStatus)}>
+          <option>Alle statussen</option>
+          <option>Concept</option>
+          <option>Verzonden</option>
+          <option>Geaccepteerd</option>
+          <option>Afgewezen</option>
+        </select>
+        <span>{rows.length} van {quotes.length} offertes</span>
+        <span>Zoeken via de balk bovenin</span>
+      </div>
       <DataTable
         columns={['Offerte', 'Klant', 'Geldig tot', 'Bedrag', 'Status', 'Actie']}
-        rows={quotes.map((quote) => [
+        rows={rows.map((quote) => [
           quote.number,
           nameFor(quote.customerId, customers),
           quote.validUntil,
@@ -1382,11 +1438,13 @@ function QuoteDetail({
   customers,
   onBack,
   onConvert,
+  onStatusChange,
 }: {
   quote: Quote
   customers: Customer[]
   onBack: () => void
   onConvert: (quote: Quote) => void
+  onStatusChange: (quoteId: string, status: QuoteStatus) => void
 }) {
   const totals = calculateTotals(quote.items)
   return (
@@ -1407,6 +1465,11 @@ function QuoteDetail({
           rows={quote.items.map((item) => [item.description, String(item.quantity), eur.format(item.price), `${item.vat}%`, eur.format(item.quantity * item.price * (1 + item.vat / 100))])}
         />
         <div className="invoice-actions">
+          {(['Concept', 'Verzonden', 'Geaccepteerd', 'Afgewezen'] as QuoteStatus[]).map((status) => (
+            <button key={status} className={quote.status === status ? 'primary' : 'ghost'} onClick={() => onStatusChange(quote.id, status)}>
+              {status}
+            </button>
+          ))}
           <button className="primary" onClick={() => onConvert(quote)}>Omzetten naar factuur</button>
           <button className="ghost" onClick={() => window.print()}>Printen</button>
         </div>
@@ -1580,7 +1643,14 @@ function DataTable({ columns, rows }: { columns: string[]; rows: ReactNode[][] }
     <div className="table-wrap">
       <table>
         <thead><tr>{columns.map((column) => <th key={column}>{column}</th>)}</tr></thead>
-        <tbody>{rows.map((row, index) => <tr key={index}>{row.map((cell, cellIndex) => <td key={cellIndex}>{cell}</td>)}</tr>)}</tbody>
+        <tbody>
+          {rows.length === 0 && (
+            <tr>
+              <td className="empty-cell" colSpan={columns.length}>Geen resultaten binnen deze administratie.</td>
+            </tr>
+          )}
+          {rows.map((row, index) => <tr key={index}>{row.map((cell, cellIndex) => <td key={cellIndex}>{cell}</td>)}</tr>)}
+        </tbody>
       </table>
     </div>
   )
@@ -1616,6 +1686,48 @@ function addDaysIso(days: number) {
 
 function nameFor(customerId: string, sourceCustomers: Customer[] = customers) {
   return sourceCustomers.find((customer) => customer.id === customerId)?.name ?? 'Onbekende klant'
+}
+
+function normalize(value: string) {
+  return value.trim().toLowerCase()
+}
+
+function includesSearch(values: string[], searchTerm: string) {
+  const search = normalize(searchTerm)
+  return !search || values.some((value) => normalize(value).includes(search))
+}
+
+function customerMatches(customer: Customer, searchTerm: string) {
+  return includesSearch([
+    customer.name,
+    customer.contact,
+    customer.email,
+    customer.phone,
+    customer.city,
+    customer.vat,
+    customer.chamber,
+  ], searchTerm)
+}
+
+function invoiceMatches(invoice: Invoice, sourceCustomers: Customer[], searchTerm: string) {
+  return includesSearch([
+    invoice.number,
+    invoice.status,
+    invoice.date,
+    invoice.due,
+    nameFor(invoice.customerId, sourceCustomers),
+    ...invoice.items.map((item) => item.description),
+  ], searchTerm)
+}
+
+function quoteMatches(quote: Quote, sourceCustomers: Customer[], searchTerm: string) {
+  return includesSearch([
+    quote.number,
+    quote.status,
+    quote.validUntil,
+    nameFor(quote.customerId, sourceCustomers),
+    ...quote.items.map((item) => item.description),
+  ], searchTerm)
 }
 
 function titleFor(screen: Screen) {

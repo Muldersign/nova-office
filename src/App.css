@@ -544,6 +544,18 @@ th {
   font-weight: 800;
 }
 
+.table-actions {
+  display: flex;
+  gap: 12px;
+  align-items: center;
+}
+
+.empty-cell {
+  padding: 28px 12px;
+  color: var(--muted);
+  text-align: center;
+}
+
 .status {
   display: inline-flex;
   align-items: center;
@@ -1038,7 +1050,14 @@ th {
   }
 
   .search {
-    display: none;
+    order: 3;
+    display: flex;
+    width: 100%;
+  }
+
+  .topbar-actions {
+    flex-wrap: wrap;
+    justify-content: flex-end;
   }
 }
 
