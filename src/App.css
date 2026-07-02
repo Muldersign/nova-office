@@ -370,6 +370,30 @@ nav button:hover {
   gap: 10px;
 }
 
+.module-tabs {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin: -6px 0 20px;
+}
+
+.module-tabs button {
+  min-height: 38px;
+  border: 1px solid var(--line);
+  border-radius: 7px;
+  padding: 0 12px;
+  background: #fff;
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.module-tabs button.active,
+.module-tabs button:hover {
+  border-color: rgba(24, 119, 242, 0.35);
+  background: var(--blue-soft);
+  color: var(--blue);
+}
+
 .search {
   width: min(380px, 38vw);
   display: flex;

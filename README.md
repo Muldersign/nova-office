@@ -13,9 +13,9 @@ Scope:
 - Registreren, inloggen en wachtwoord vergeten
 - Multi-tenant architectuur waarin een gebruiker meerdere bedrijven kan beheren
 - Dashboard voor de actieve tenant
-- Klantenoverzicht en klantdetail
-- Factuuroverzicht en factuur aanmaken
-- Offerteoverzicht
+- Klantenoverzicht, klantdetail, klant toevoegen en klant bewerken
+- Factuuroverzicht, factuur aanmaken, factuurdetail en status wijzigen
+- Offerteoverzicht, offerte aanmaken, offertedetail en offerte omzetten naar factuur
 - Databasecontract voor de fundering
 - Rollen- en rechtenstructuur
 - Design-system/componentenbasis
@@ -88,6 +88,12 @@ Controleer linting:
 
 ```bash
 npm run lint
+```
+
+Draai de MVP-regressietests:
+
+```bash
+npm test
 ```
 
 ## Deployment

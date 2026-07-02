@@ -517,6 +517,14 @@ function App() {
           </div>
         </header>
 
+        <div className="module-tabs" aria-label="MVP modules">
+          {(['dashboard', 'customers', 'invoices', 'quotes'] as Screen[]).map((module) => (
+            <button key={module} className={screen === module ? 'active' : ''} onClick={() => navigate(module)}>
+              {titleFor(module)}
+            </button>
+          ))}
+        </div>
+
         {screen === 'dashboard' && <Dashboard metrics={metrics} dashboardCustomers={companyCustomers} dashboardInvoices={companyInvoices} dashboardQuotes={companyQuotes} onNavigate={navigate} />}
         {screen === 'customers' && (
           <Customers
