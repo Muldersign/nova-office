@@ -15,6 +15,7 @@ import {
   BriefcaseBusiness,
   Building2,
   Check,
+  Download,
   FileCheck2,
   FilePlus2,
   FileText,
@@ -33,6 +34,7 @@ import {
 } from 'lucide-react'
 import { calculateTotals, nextDocumentNumber, validateRequiredCustomer } from './foundation/business'
 import { foundationRules, foundationSchema, tenantScopedTables } from './foundation/database'
+import { createPrintableDocumentHtml } from './foundation/documents'
 import './App.css'
 
 type Screen =
@@ -49,6 +51,7 @@ type Screen =
   | 'quote-create'
   | 'quote-detail'
   | 'companies'
+  | 'company-form'
   | 'roles'
   | 'database'
   | 'design-system'
@@ -65,6 +68,18 @@ type Screen =
 
 type InvoiceStatus = 'Concept' | 'Verzonden' | 'Betaald' | 'Verlopen'
 type QuoteStatus = 'Concept' | 'Verzonden' | 'Geaccepteerd' | 'Afgewezen'
+type CompanyRole = 'Eigenaar' | 'Beheerder' | 'Financieel medewerker' | 'Lezer'
+type CompanyPlan = 'NOVA Start' | 'NOVA ZZP' | 'NOVA MKB' | 'NOVA Enterprise'
+
+type Company = {
+  id: string
+  name: string
+  role: CompanyRole
+  plan: CompanyPlan
+  chamber: string
+  vat: string
+  city: string
+}
 
 type Customer = {
   id: string
@@ -124,9 +139,25 @@ type InvoiceRow = {
 
 const companyId = 'comp_nova_demo'
 
-const companies = [
-  { id: 'comp_nova_demo', name: 'NOVA Demo BV', role: 'Eigenaar', plan: 'NOVA Start' },
-  { id: 'comp_orbit_studio', name: 'Orbit Studio VOF', role: 'Beheerder', plan: 'NOVA Start' },
+const companies: Company[] = [
+  {
+    id: 'comp_nova_demo',
+    name: 'NOVA Demo BV',
+    role: 'Eigenaar',
+    plan: 'NOVA Start',
+    chamber: '87124490',
+    vat: 'NL862145901B01',
+    city: 'Amsterdam',
+  },
+  {
+    id: 'comp_orbit_studio',
+    name: 'Orbit Studio VOF',
+    role: 'Beheerder',
+    plan: 'NOVA Start',
+    chamber: '63091244',
+    vat: 'NL809912344B01',
+    city: 'Den Haag',
+  },
 ]
 
 const roles = [
@@ -366,6 +397,7 @@ const sessionKeys = {
 const workspaceVersion = '2026-07-03-1'
 const workspaceKeys = {
   version: 'nova.workspace.version',
+  companies: 'nova.workspace.companies',
   customers: 'nova.workspace.customers',
   invoices: 'nova.workspace.invoices',
   quotes: 'nova.workspace.quotes',
@@ -421,7 +453,8 @@ function readActiveCompanyId() {
   }
 
   const storedCompanyId = window.localStorage.getItem(sessionKeys.activeCompanyId)
-  return companies.some((company) => company.id === storedCompanyId) ? storedCompanyId ?? companyId : companyId
+  const storedCompanies = readWorkspaceRecords(workspaceKeys.companies, companies)
+  return storedCompanies.some((company) => company.id === storedCompanyId) ? storedCompanyId ?? companyId : companyId
 }
 
 function App() {
@@ -433,6 +466,7 @@ function App() {
     return readSessionFlag(sessionKeys.onboarded) ? 'dashboard' : 'onboarding'
   })
   const [activeCompanyId, setActiveCompanyIdState] = useState(readActiveCompanyId)
+  const [companyRecords, setCompanyRecords] = useState<Company[]>(() => readWorkspaceRecords(workspaceKeys.companies, companies))
   const [customerRecords, setCustomerRecords] = useState<Customer[]>(() => readWorkspaceRecords(workspaceKeys.customers, customers))
   const [invoiceRecords, setInvoiceRecords] = useState<Invoice[]>(() => readWorkspaceRecords(workspaceKeys.invoices, invoices))
   const [quoteRecords, setQuoteRecords] = useState<Quote[]>(() => readWorkspaceRecords(workspaceKeys.quotes, quotes))
@@ -440,6 +474,7 @@ function App() {
   const [selectedCustomer, setSelectedCustomer] = useState(customers[0].id)
   const [selectedInvoice, setSelectedInvoice] = useState(invoices[0].id)
   const [selectedQuote, setSelectedQuote] = useState(quotes[0].id)
+  const [editingCompanyId, setEditingCompanyId] = useState<string | null>(null)
   const [editingCustomerId, setEditingCustomerId] = useState<string | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [globalSearch, setGlobalSearch] = useState('')
@@ -471,13 +506,17 @@ function App() {
   const filteredCustomers = companyCustomers.filter((customer) => customerMatches(customer, globalSearch))
   const filteredInvoices = companyInvoices.filter((invoice) => invoiceMatches(invoice, companyCustomers, globalSearch))
   const filteredQuotes = companyQuotes.filter((quote) => quoteMatches(quote, companyCustomers, globalSearch))
-  const activeCompany = companies.find((company) => company.id === activeCompanyId) ?? companies[0]
+  const activeCompany = companyRecords.find((company) => company.id === activeCompanyId) ?? companyRecords[0] ?? companies[0]
   const currentCustomer = companyCustomers.find((customer) => customer.id === selectedCustomer) ?? companyCustomers[0] ?? customers[0]
   const currentInvoice = companyInvoices.find((invoice) => invoice.id === selectedInvoice) ?? companyInvoices[0]
   const currentQuote = companyQuotes.find((quote) => quote.id === selectedQuote) ?? companyQuotes[0]
   const invoiceTotal = invoiceRows.reduce((sum, row) => sum + row.quantity * row.price * (1 + row.vat / 100), 0)
   const nextInvoiceNumber = nextDocumentNumber(companyInvoices.map((invoice) => invoice.number), '2026')
   const nextQuoteNumber = nextDocumentNumber(companyQuotes.map((quote) => quote.number), 'OFF-2026', 3)
+
+  useEffect(() => {
+    writeWorkspaceRecords(workspaceKeys.companies, companyRecords)
+  }, [companyRecords])
 
   useEffect(() => {
     writeWorkspaceRecords(workspaceKeys.customers, customerRecords)
@@ -554,6 +593,15 @@ function App() {
     navigate('customer-detail')
   }
 
+  const saveCompany = (company: Company) => {
+    const exists = companyRecords.some((record) => record.id === company.id)
+    setCompanyRecords((records) => (exists ? records.map((record) => (record.id === company.id ? company : record)) : [company, ...records]))
+    appendAudit(company.id, `${exists ? 'Bedrijf bijgewerkt' : 'Bedrijf toegevoegd'}: ${company.name}`, 'company', company.id)
+    setEditingCompanyId(null)
+    setActiveCompanyId(company.id)
+    navigate('companies')
+  }
+
   const saveInvoice = (invoice: Invoice) => {
     setInvoiceRecords((records) => [invoice, ...records])
     appendAudit(invoice.companyId, `Factuur ${invoice.number} aangemaakt voor ${nameFor(invoice.customerId, customerRecords)}`, 'invoice', invoice.id)
@@ -604,6 +652,7 @@ function App() {
 
   const resetWorkspace = () => {
     resetWorkspaceStorage()
+    setCompanyRecords(companies)
     setCustomerRecords(customers)
     setInvoiceRecords(invoices)
     setQuoteRecords(quotes)
@@ -618,6 +667,7 @@ function App() {
     const payload = {
       exportedAt: new Date().toISOString(),
       activeCompanyId,
+      companies: companyRecords,
       customers: customerRecords,
       invoices: invoiceRecords,
       quotes: quoteRecords,
@@ -646,7 +696,7 @@ function App() {
             <span>company_id: {activeCompany.id}</span>
           </div>
           <select value={activeCompanyId} onChange={(event) => setActiveCompanyId(event.target.value)}>
-            {companies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}
+            {companyRecords.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}
           </select>
         </div>
         <nav>
@@ -762,7 +812,7 @@ function App() {
           />
         )}
         {screen === 'invoice-detail' && currentInvoice && (
-          <InvoiceDetail invoice={currentInvoice} customers={companyCustomers} onBack={() => navigate('invoices')} onStatusChange={updateInvoiceStatus} />
+          <InvoiceDetail invoice={currentInvoice} customers={companyCustomers} company={activeCompany} onBack={() => navigate('invoices')} onStatusChange={updateInvoiceStatus} />
         )}
         {screen === 'quotes' && (
           <Quotes
@@ -786,9 +836,30 @@ function App() {
           />
         )}
         {screen === 'quote-detail' && currentQuote && (
-          <QuoteDetail quote={currentQuote} customers={companyCustomers} onBack={() => navigate('quotes')} onConvert={convertQuoteToInvoice} onStatusChange={updateQuoteStatus} />
+          <QuoteDetail quote={currentQuote} customers={companyCustomers} company={activeCompany} onBack={() => navigate('quotes')} onConvert={convertQuoteToInvoice} onStatusChange={updateQuoteStatus} />
         )}
-        {screen === 'companies' && <Companies activeCompanyId={activeCompanyId} onSelect={setActiveCompanyId} />}
+        {screen === 'companies' && (
+          <Companies
+            companies={companyRecords}
+            activeCompanyId={activeCompanyId}
+            onSelect={setActiveCompanyId}
+            onAdd={() => {
+              setEditingCompanyId(null)
+              navigate('company-form')
+            }}
+            onEdit={(id) => {
+              setEditingCompanyId(id)
+              navigate('company-form')
+            }}
+          />
+        )}
+        {screen === 'company-form' && (
+          <CompanyForm
+            company={editingCompanyId ? companyRecords.find((company) => company.id === editingCompanyId) : undefined}
+            onCancel={() => navigate('companies')}
+            onSave={saveCompany}
+          />
+        )}
         {screen === 'roles' && <Roles />}
         {screen === 'database' && <DatabaseFoundation />}
         {screen === 'design-system' && <DesignSystem />}
@@ -1245,15 +1316,35 @@ function InvoiceCreate({
 function InvoiceDetail({
   invoice,
   customers,
+  company,
   onBack,
   onStatusChange,
 }: {
   invoice: Invoice
   customers: Customer[]
+  company: Company
   onBack: () => void
   onStatusChange: (invoiceId: string, status: InvoiceStatus) => void
 }) {
   const totals = calculateTotals(invoice.items)
+  const customer = customers.find((record) => record.id === invoice.customerId)
+  const download = () => downloadHtml(
+    `factuur-${invoice.number}.html`,
+    createPrintableDocumentHtml({
+      type: 'invoice',
+      number: invoice.number,
+      status: invoice.status,
+      companyName: company.name,
+      companyVat: company.vat,
+      companyChamber: company.chamber,
+      customerName: customer?.name ?? 'Onbekende klant',
+      customerAddress: customer ? `${customer.address}, ${customer.postalCode} ${customer.city}` : '',
+      date: invoice.date,
+      dueDate: invoice.due,
+      lines: invoice.items,
+    }),
+  )
+
   return (
     <div className="invoice-builder">
       <section className="panel">
@@ -1289,6 +1380,7 @@ function InvoiceDetail({
           <span className="summary-total">Totaal<strong>{eur.format(totals.total)}</strong></span>
         </div>
         <button className="primary full" onClick={() => window.print()}>Printen</button>
+        <button className="ghost full" onClick={download}><Download size={17} /> Download HTML</button>
       </aside>
     </div>
   )
@@ -1436,17 +1528,37 @@ function QuoteCreate({
 function QuoteDetail({
   quote,
   customers,
+  company,
   onBack,
   onConvert,
   onStatusChange,
 }: {
   quote: Quote
   customers: Customer[]
+  company: Company
   onBack: () => void
   onConvert: (quote: Quote) => void
   onStatusChange: (quoteId: string, status: QuoteStatus) => void
 }) {
   const totals = calculateTotals(quote.items)
+  const customer = customers.find((record) => record.id === quote.customerId)
+  const download = () => downloadHtml(
+    `offerte-${quote.number}.html`,
+    createPrintableDocumentHtml({
+      type: 'quote',
+      number: quote.number,
+      status: quote.status,
+      companyName: company.name,
+      companyVat: company.vat,
+      companyChamber: company.chamber,
+      customerName: customer?.name ?? 'Onbekende klant',
+      customerAddress: customer ? `${customer.address}, ${customer.postalCode} ${customer.city}` : '',
+      date: todayIso(),
+      validUntil: quote.validUntil,
+      lines: quote.items,
+    }),
+  )
+
   return (
     <div className="invoice-builder">
       <section className="panel">
@@ -1472,6 +1584,7 @@ function QuoteDetail({
           ))}
           <button className="primary" onClick={() => onConvert(quote)}>Omzetten naar factuur</button>
           <button className="ghost" onClick={() => window.print()}>Printen</button>
+          <button className="ghost" onClick={download}><Download size={17} /> Download HTML</button>
         </div>
       </section>
       <aside className="panel preview">
@@ -1487,22 +1600,94 @@ function QuoteDetail({
   )
 }
 
-function Companies({ activeCompanyId, onSelect }: { activeCompanyId: string; onSelect: (companyId: string) => void }) {
+function Companies({
+  companies,
+  activeCompanyId,
+  onSelect,
+  onAdd,
+  onEdit,
+}: {
+  companies: Company[]
+  activeCompanyId: string
+  onSelect: (companyId: string) => void
+  onAdd: () => void
+  onEdit: (companyId: string) => void
+}) {
   return (
     <section className="panel">
-      <PanelHeader title="Bedrijven en administraties" />
+      <PanelHeader title="Bedrijven en administraties" action="Bedrijf toevoegen" onAction={onAdd} />
       <DataTable
-        columns={['Bedrijf', 'Rol', 'Pakket', 'Tenant key', 'Status']}
+        columns={['Bedrijf', 'Plaats', 'Rol', 'Pakket', 'KvK', 'BTW', 'Acties']}
         rows={companies.map((company) => [
           company.name,
+          company.city,
           company.role,
           company.plan,
-          company.id,
-          <button key={company.id} className="table-link" onClick={() => onSelect(company.id)}>
-            {company.id === activeCompanyId ? 'Actief' : 'Activeren'}
-          </button>,
+          company.chamber,
+          company.vat,
+          <div key={company.id} className="table-actions">
+            <button className="table-link" onClick={() => onSelect(company.id)}>
+              {company.id === activeCompanyId ? 'Actief' : 'Activeren'}
+            </button>
+            <button className="table-link" onClick={() => onEdit(company.id)}>Bewerken</button>
+          </div>,
         ])}
       />
+    </section>
+  )
+}
+
+function CompanyForm({
+  company,
+  onCancel,
+  onSave,
+}: {
+  company?: Company
+  onCancel: () => void
+  onSave: (company: Company) => void
+}) {
+  const [name, setName] = useState(company?.name ?? '')
+  const [city, setCity] = useState(company?.city ?? '')
+  const [chamber, setChamber] = useState(company?.chamber ?? '')
+  const [vat, setVat] = useState(company?.vat ?? '')
+  const [role, setRole] = useState<CompanyRole>(company?.role ?? 'Eigenaar')
+  const [plan, setPlan] = useState<CompanyPlan>(company?.plan ?? 'NOVA Start')
+  const [error, setError] = useState('')
+
+  const save = () => {
+    if (!name.trim() || !city.trim() || !chamber.trim() || !vat.trim()) {
+      setError('Vul bedrijfsnaam, plaats, KvK en BTW-nummer in.')
+      return
+    }
+
+    onSave({
+      id: company?.id ?? `comp_${Date.now()}`,
+      name,
+      city,
+      chamber,
+      vat,
+      role,
+      plan,
+    })
+  }
+
+  return (
+    <section className="panel">
+      <button className="table-link" onClick={onCancel}>Terug naar bedrijven</button>
+      <PanelHeader title={company ? 'Bedrijf bewerken' : 'Bedrijf toevoegen'} />
+      {error && <p className="form-error">{error}</p>}
+      <div className="form-grid">
+        <label>Bedrijfsnaam<input value={name} onChange={(event) => setName(event.target.value)} /></label>
+        <label>Plaats<input value={city} onChange={(event) => setCity(event.target.value)} /></label>
+        <label>KvK-nummer<input value={chamber} onChange={(event) => setChamber(event.target.value)} /></label>
+        <label>BTW-nummer<input value={vat} onChange={(event) => setVat(event.target.value)} /></label>
+        <label>Rol<select value={role} onChange={(event) => setRole(event.target.value as CompanyRole)}><option>Eigenaar</option><option>Beheerder</option><option>Financieel medewerker</option><option>Lezer</option></select></label>
+        <label>Pakket<select value={plan} onChange={(event) => setPlan(event.target.value as CompanyPlan)}><option>NOVA Start</option><option>NOVA ZZP</option><option>NOVA MKB</option><option>NOVA Enterprise</option></select></label>
+      </div>
+      <div className="invoice-actions">
+        <button className="ghost" onClick={onCancel}>Annuleren</button>
+        <button className="primary" onClick={save}>Bedrijf opslaan</button>
+      </div>
     </section>
   )
 }
@@ -1684,6 +1869,16 @@ function addDaysIso(days: number) {
   return date.toISOString().slice(0, 10)
 }
 
+function downloadHtml(filename: string, html: string) {
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
+  const url = window.URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename
+  link.click()
+  window.URL.revokeObjectURL(url)
+}
+
 function nameFor(customerId: string, sourceCustomers: Customer[] = customers) {
   return sourceCustomers.find((customer) => customer.id === customerId)?.name ?? 'Onbekende klant'
 }
@@ -1745,6 +1940,7 @@ function titleFor(screen: Screen) {
     'quote-create': 'Offerte aanmaken',
     'quote-detail': 'Offerte detail',
     companies: 'Bedrijven',
+    'company-form': 'Bedrijf beheren',
     roles: 'Rollen en rechten',
     database: 'Database',
     'design-system': 'Design system',
