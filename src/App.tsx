@@ -39,10 +39,14 @@ type Screen =
   | 'onboarding'
   | 'dashboard'
   | 'customers'
+  | 'customer-form'
   | 'customer-detail'
   | 'invoices'
   | 'invoice-create'
+  | 'invoice-detail'
   | 'quotes'
+  | 'quote-create'
+  | 'quote-detail'
   | 'companies'
   | 'roles'
   | 'database'
@@ -69,6 +73,8 @@ type Customer = {
   email: string
   phone: string
   address: string
+  postalCode: string
+  city: string
   vat: string
   chamber: string
   revenue: number
@@ -84,6 +90,7 @@ type Invoice = {
   amount: number
   vat: number
   status: InvoiceStatus
+  items: InvoiceRow[]
 }
 
 type Quote = {
@@ -92,8 +99,10 @@ type Quote = {
   customerId: string
   number: string
   amount: number
+  vat: number
   status: QuoteStatus
   validUntil: string
+  items: InvoiceRow[]
 }
 
 type InvoiceRow = {
@@ -125,7 +134,9 @@ const customers: Customer[] = [
     contact: 'Mila Veldkamp',
     email: 'mila@studioveldkamp.nl',
     phone: '020 445 1190',
-    address: 'Keizersgracht 214, Amsterdam',
+    address: 'Keizersgracht 214',
+    postalCode: '1016 DZ',
+    city: 'Amsterdam',
     vat: 'NL862145901B01',
     chamber: '87124490',
     revenue: 18450,
@@ -137,7 +148,9 @@ const customers: Customer[] = [
     contact: 'Samir El Idrissi',
     email: 'finance@rijnhaven.nl',
     phone: '010 882 4401',
-    address: 'Rijnhaven 32, Rotterdam',
+    address: 'Rijnhaven 32',
+    postalCode: '3072 AP',
+    city: 'Rotterdam',
     vat: 'NL811020355B01',
     chamber: '69201844',
     revenue: 31200,
@@ -149,7 +162,9 @@ const customers: Customer[] = [
     contact: 'Eva de Boer',
     email: 'eva@nordbyte.io',
     phone: '030 220 1788',
-    address: 'Biltstraat 112, Utrecht',
+    address: 'Biltstraat 112',
+    postalCode: '3572 BJ',
+    city: 'Utrecht',
     vat: 'NL855903127B01',
     chamber: '74281033',
     revenue: 12780,
@@ -161,7 +176,9 @@ const customers: Customer[] = [
     contact: 'Lotte Kramer',
     email: 'lotte@heldermerk.nl',
     phone: '070 320 4402',
-    address: 'Noordeinde 88, Den Haag',
+    address: 'Noordeinde 88',
+    postalCode: '2514 GM',
+    city: 'Den Haag',
     vat: 'NL809912344B01',
     chamber: '63091244',
     revenue: 8420,
@@ -169,18 +186,116 @@ const customers: Customer[] = [
 ]
 
 const invoices: Invoice[] = [
-  { id: 'inv_01', companyId, customerId: 'cus_01', number: '2026-0142', date: '2026-07-01', due: '2026-07-15', amount: 3920, vat: 680, status: 'Verzonden' },
-  { id: 'inv_02', companyId, customerId: 'cus_02', number: '2026-0141', date: '2026-06-26', due: '2026-07-10', amount: 8470, vat: 1470, status: 'Betaald' },
-  { id: 'inv_03', companyId, customerId: 'cus_03', number: '2026-0140', date: '2026-06-18', due: '2026-07-02', amount: 2118, vat: 368, status: 'Verlopen' },
-  { id: 'inv_04', companyId, customerId: 'cus_01', number: '2026-0139', date: '2026-06-15', due: '2026-06-29', amount: 1452, vat: 252, status: 'Concept' },
-  { id: 'inv_05', companyId: 'comp_orbit_studio', customerId: 'cus_04', number: '2026-0031', date: '2026-07-01', due: '2026-07-15', amount: 1815, vat: 315, status: 'Verzonden' },
+  {
+    id: 'inv_01',
+    companyId,
+    customerId: 'cus_01',
+    number: '2026-0142',
+    date: '2026-07-01',
+    due: '2026-07-15',
+    amount: 3920,
+    vat: 680,
+    status: 'Verzonden',
+    items: [
+      { description: 'Merkstrategie sprint', quantity: 1, price: 2400, vat: 21 },
+      { description: 'Implementatiebegeleiding', quantity: 1, price: 840, vat: 21 },
+    ],
+  },
+  {
+    id: 'inv_02',
+    companyId,
+    customerId: 'cus_02',
+    number: '2026-0141',
+    date: '2026-06-26',
+    due: '2026-07-10',
+    amount: 8470,
+    vat: 1470,
+    status: 'Betaald',
+    items: [{ description: 'Procesoptimalisatie administratie', quantity: 1, price: 7000, vat: 21 }],
+  },
+  {
+    id: 'inv_03',
+    companyId,
+    customerId: 'cus_03',
+    number: '2026-0140',
+    date: '2026-06-18',
+    due: '2026-07-02',
+    amount: 2118,
+    vat: 368,
+    status: 'Verlopen',
+    items: [{ description: 'SaaS onboardingpakket', quantity: 1, price: 1750, vat: 21 }],
+  },
+  {
+    id: 'inv_04',
+    companyId,
+    customerId: 'cus_01',
+    number: '2026-0139',
+    date: '2026-06-15',
+    due: '2026-06-29',
+    amount: 1452,
+    vat: 252,
+    status: 'Concept',
+    items: [{ description: 'Campagneadvies', quantity: 1, price: 1200, vat: 21 }],
+  },
+  {
+    id: 'inv_05',
+    companyId: 'comp_orbit_studio',
+    customerId: 'cus_04',
+    number: '2026-0031',
+    date: '2026-07-01',
+    due: '2026-07-15',
+    amount: 1815,
+    vat: 315,
+    status: 'Verzonden',
+    items: [{ description: 'Brand refresh', quantity: 1, price: 1500, vat: 21 }],
+  },
 ]
 
 const quotes: Quote[] = [
-  { id: 'quo_01', companyId, customerId: 'cus_03', number: 'OFF-2026-055', amount: 6400, status: 'Verzonden', validUntil: '2026-07-18' },
-  { id: 'quo_02', companyId, customerId: 'cus_01', number: 'OFF-2026-054', amount: 2800, status: 'Geaccepteerd', validUntil: '2026-07-08' },
-  { id: 'quo_03', companyId, customerId: 'cus_02', number: 'OFF-2026-053', amount: 11900, status: 'Concept', validUntil: '2026-07-26' },
-  { id: 'quo_04', companyId: 'comp_orbit_studio', customerId: 'cus_04', number: 'OFF-2026-012', amount: 3200, status: 'Concept', validUntil: '2026-07-28' },
+  {
+    id: 'quo_01',
+    companyId,
+    customerId: 'cus_03',
+    number: 'OFF-2026-055',
+    amount: 6400,
+    vat: 1111,
+    status: 'Verzonden',
+    validUntil: '2026-07-18',
+    items: [{ description: 'Implementatie NOVA workflow', quantity: 1, price: 5289, vat: 21 }],
+  },
+  {
+    id: 'quo_02',
+    companyId,
+    customerId: 'cus_01',
+    number: 'OFF-2026-054',
+    amount: 2800,
+    vat: 486,
+    status: 'Geaccepteerd',
+    validUntil: '2026-07-08',
+    items: [{ description: 'Klantportaal inrichting', quantity: 1, price: 2314, vat: 21 }],
+  },
+  {
+    id: 'quo_03',
+    companyId,
+    customerId: 'cus_02',
+    number: 'OFF-2026-053',
+    amount: 11900,
+    vat: 2065,
+    status: 'Concept',
+    validUntil: '2026-07-26',
+    items: [{ description: 'MKB administratiefundering', quantity: 1, price: 9835, vat: 21 }],
+  },
+  {
+    id: 'quo_04',
+    companyId: 'comp_orbit_studio',
+    customerId: 'cus_04',
+    number: 'OFF-2026-012',
+    amount: 3200,
+    vat: 555,
+    status: 'Concept',
+    validUntil: '2026-07-28',
+    items: [{ description: 'Merkpakket start', quantity: 1, price: 2645, vat: 21 }],
+  },
 ]
 
 const monthlyData = [
@@ -234,7 +349,13 @@ function App() {
     return readSessionFlag(sessionKeys.onboarded) ? 'dashboard' : 'onboarding'
   })
   const [activeCompanyId, setActiveCompanyIdState] = useState(readActiveCompanyId)
+  const [customerRecords, setCustomerRecords] = useState<Customer[]>(customers)
+  const [invoiceRecords, setInvoiceRecords] = useState<Invoice[]>(invoices)
+  const [quoteRecords, setQuoteRecords] = useState<Quote[]>(quotes)
   const [selectedCustomer, setSelectedCustomer] = useState(customers[0].id)
+  const [selectedInvoice, setSelectedInvoice] = useState(invoices[0].id)
+  const [selectedQuote, setSelectedQuote] = useState(quotes[0].id)
+  const [editingCustomerId, setEditingCustomerId] = useState<string | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [invoiceRows, setInvoiceRows] = useState([
     { description: 'Adviespakket Groei', quantity: 1, price: 1250, vat: 21 },
@@ -242,25 +363,31 @@ function App() {
   ])
 
   const metrics = useMemo(() => {
-    const companyInvoices = invoices.filter((invoice) => invoice.companyId === activeCompanyId)
+    const companyInvoices = invoiceRecords.filter((invoice) => invoice.companyId === activeCompanyId)
     const open = companyInvoices.filter((invoice) => invoice.status !== 'Betaald').reduce((sum, invoice) => sum + invoice.amount, 0)
+    const overdue = companyInvoices.filter((invoice) => invoice.status === 'Verlopen').reduce((sum, invoice) => sum + invoice.amount, 0)
     const revenue = monthlyData.at(-1)?.omzet ?? 0
     const costs = monthlyData.at(-1)?.kosten ?? 0
     return {
       open,
+      overdue,
       revenue,
       costs,
       profit: revenue - costs,
       vatDue: 2786,
     }
-  }, [activeCompanyId])
+  }, [activeCompanyId, invoiceRecords])
 
-  const companyCustomers = customers.filter((customer) => customer.companyId === activeCompanyId)
-  const companyInvoices = invoices.filter((invoice) => invoice.companyId === activeCompanyId)
-  const companyQuotes = quotes.filter((quote) => quote.companyId === activeCompanyId)
+  const companyCustomers = customerRecords.filter((customer) => customer.companyId === activeCompanyId)
+  const companyInvoices = invoiceRecords.filter((invoice) => invoice.companyId === activeCompanyId)
+  const companyQuotes = quoteRecords.filter((quote) => quote.companyId === activeCompanyId)
   const activeCompany = companies.find((company) => company.id === activeCompanyId) ?? companies[0]
   const currentCustomer = companyCustomers.find((customer) => customer.id === selectedCustomer) ?? companyCustomers[0] ?? customers[0]
+  const currentInvoice = companyInvoices.find((invoice) => invoice.id === selectedInvoice) ?? companyInvoices[0]
+  const currentQuote = companyQuotes.find((quote) => quote.id === selectedQuote) ?? companyQuotes[0]
   const invoiceTotal = invoiceRows.reduce((sum, row) => sum + row.quantity * row.price * (1 + row.vat / 100), 0)
+  const nextInvoiceNumber = nextNumber(companyInvoices.map((invoice) => invoice.number), '2026')
+  const nextQuoteNumber = nextNumber(companyQuotes.map((quote) => quote.number), 'OFF-2026')
 
   const setActiveCompanyId = (nextCompanyId: string) => {
     setActiveCompanyIdState(nextCompanyId)
@@ -294,6 +421,49 @@ function App() {
   const navigate = (next: Screen) => {
     setScreen(next)
     setMenuOpen(false)
+  }
+
+  const saveCustomer = (customer: Customer) => {
+    setCustomerRecords((records) => {
+      const exists = records.some((record) => record.id === customer.id)
+      return exists ? records.map((record) => (record.id === customer.id ? customer : record)) : [customer, ...records]
+    })
+    setSelectedCustomer(customer.id)
+    setEditingCustomerId(null)
+    navigate('customer-detail')
+  }
+
+  const saveInvoice = (invoice: Invoice) => {
+    setInvoiceRecords((records) => [invoice, ...records])
+    setSelectedInvoice(invoice.id)
+    navigate('invoice-detail')
+  }
+
+  const saveQuote = (quote: Quote) => {
+    setQuoteRecords((records) => [quote, ...records])
+    setSelectedQuote(quote.id)
+    navigate('quote-detail')
+  }
+
+  const updateInvoiceStatus = (invoiceId: string, status: InvoiceStatus) => {
+    setInvoiceRecords((records) => records.map((invoice) => (invoice.id === invoiceId ? { ...invoice, status } : invoice)))
+  }
+
+  const convertQuoteToInvoice = (quote: Quote) => {
+    const invoice: Invoice = {
+      id: `inv_${Date.now()}`,
+      companyId: quote.companyId,
+      customerId: quote.customerId,
+      number: nextInvoiceNumber,
+      date: todayIso(),
+      due: addDaysIso(14),
+      amount: quote.amount,
+      vat: quote.vat,
+      status: 'Concept',
+      items: quote.items,
+    }
+    setQuoteRecords((records) => records.map((record) => (record.id === quote.id ? { ...record, status: 'Geaccepteerd' } : record)))
+    saveInvoice(invoice)
   }
 
   return (
@@ -347,18 +517,88 @@ function App() {
         </header>
 
         {screen === 'dashboard' && <Dashboard metrics={metrics} dashboardCustomers={companyCustomers} dashboardInvoices={companyInvoices} dashboardQuotes={companyQuotes} onNavigate={navigate} />}
-        {screen === 'customers' && <Customers customers={companyCustomers} onSelect={(id) => { setSelectedCustomer(id); navigate('customer-detail') }} />}
-        {screen === 'customer-detail' && <CustomerDetail customer={currentCustomer} onBack={() => navigate('customers')} />}
-        {screen === 'invoices' && <Invoices invoices={companyInvoices} onCreate={() => navigate('invoice-create')} />}
+        {screen === 'customers' && (
+          <Customers
+            customers={companyCustomers}
+            onAdd={() => {
+              setEditingCustomerId(null)
+              navigate('customer-form')
+            }}
+            onSelect={(id) => {
+              setSelectedCustomer(id)
+              navigate('customer-detail')
+            }}
+          />
+        )}
+        {screen === 'customer-form' && (
+          <CustomerForm
+            activeCompanyId={activeCompanyId}
+            customer={editingCustomerId ? customerRecords.find((customer) => customer.id === editingCustomerId) : undefined}
+            onCancel={() => navigate(editingCustomerId ? 'customer-detail' : 'customers')}
+            onSave={saveCustomer}
+          />
+        )}
+        {screen === 'customer-detail' && (
+          <CustomerDetail
+            customer={currentCustomer}
+            invoices={companyInvoices}
+            quotes={companyQuotes}
+            onBack={() => navigate('customers')}
+            onEdit={() => {
+              setEditingCustomerId(currentCustomer.id)
+              navigate('customer-form')
+            }}
+          />
+        )}
+        {screen === 'invoices' && (
+          <Invoices
+            invoices={companyInvoices}
+            customers={companyCustomers}
+            onCreate={() => navigate('invoice-create')}
+            onSelect={(id) => {
+              setSelectedInvoice(id)
+              navigate('invoice-detail')
+            }}
+          />
+        )}
         {screen === 'invoice-create' && (
           <InvoiceCreate
+            activeCompanyId={activeCompanyId}
+            customers={companyCustomers}
+            number={nextInvoiceNumber}
             rows={invoiceRows}
             total={invoiceTotal}
             onRowsChange={setInvoiceRows}
             onBack={() => navigate('invoices')}
+            onSave={saveInvoice}
           />
         )}
-        {screen === 'quotes' && <Quotes quotes={companyQuotes} />}
+        {screen === 'invoice-detail' && currentInvoice && (
+          <InvoiceDetail invoice={currentInvoice} customers={companyCustomers} onBack={() => navigate('invoices')} onStatusChange={updateInvoiceStatus} />
+        )}
+        {screen === 'quotes' && (
+          <Quotes
+            quotes={companyQuotes}
+            customers={companyCustomers}
+            onCreate={() => navigate('quote-create')}
+            onSelect={(id) => {
+              setSelectedQuote(id)
+              navigate('quote-detail')
+            }}
+          />
+        )}
+        {screen === 'quote-create' && (
+          <QuoteCreate
+            activeCompanyId={activeCompanyId}
+            customers={companyCustomers}
+            number={nextQuoteNumber}
+            onBack={() => navigate('quotes')}
+            onSave={saveQuote}
+          />
+        )}
+        {screen === 'quote-detail' && currentQuote && (
+          <QuoteDetail quote={currentQuote} customers={companyCustomers} onBack={() => navigate('quotes')} onConvert={convertQuoteToInvoice} />
+        )}
         {screen === 'companies' && <Companies activeCompanyId={activeCompanyId} onSelect={setActiveCompanyId} />}
         {screen === 'roles' && <Roles />}
         {screen === 'database' && <DatabaseFoundation />}
@@ -460,11 +700,11 @@ function Dashboard({
   return (
     <div className="content-grid">
       <section className="kpi-grid">
+        <Metric label="Omzet deze maand" value={eur.format(metrics.revenue)} trend="juli" />
         <Metric label="Openstaande facturen" value={eur.format(metrics.open)} trend="+12%" />
-        <Metric label="Actieve klanten" value={String(dashboardCustomers.length)} trend="tenant-safe" />
-        <Metric label="Offertes open" value={String(dashboardQuotes.filter((quote) => quote.status !== 'Geaccepteerd').length)} trend="workflow" />
-        <Metric label="Rollen ingericht" value={String(roles.length)} trend="RBAC" />
-        <Metric label="Bedrijven" value={String(companies.length)} trend="multi-tenant" />
+        <Metric label="Verlopen facturen" value={eur.format(metrics.overdue)} trend="actie nodig" />
+        <Metric label="Aantal klanten" value={String(dashboardCustomers.length)} trend="tenant-safe" />
+        <Metric label="Concept offertes" value={String(dashboardQuotes.filter((quote) => quote.status === 'Concept').length)} trend="workflow" />
       </section>
 
       <section className="panel wide">
@@ -489,16 +729,16 @@ function Dashboard({
           <button onClick={() => onNavigate('invoice-create')}><FilePlus2 size={18} /> Factuur maken</button>
           <button onClick={() => onNavigate('quotes')}><FileCheck2 size={18} /> Offerte maken</button>
           <button onClick={() => onNavigate('companies')}><Building2 size={18} /> Bedrijf wisselen</button>
-          <button onClick={() => onNavigate('customers')}><Users size={18} /> Klant toevoegen</button>
+          <button onClick={() => onNavigate('customers')}><Users size={18} /> Klanten beheren</button>
         </div>
       </section>
 
       <section className="panel">
-        <PanelHeader title="Fundering status" />
+        <PanelHeader title="Recente activiteit" />
         <div className="suggestions">
-          <span><Check size={16} /> Authenticatieflows aanwezig</span>
-          <span><Check size={16} /> Data gefilterd per company_id</span>
-          <span><Check size={16} /> Rollenmodel voorbereid</span>
+          <span><Check size={16} /> Factuur 2026-0142 verzonden naar Studio Veldkamp</span>
+          <span><Check size={16} /> Offerte OFF-2026-054 geaccepteerd</span>
+          <span><Check size={16} /> Tenantfilter actief voor {dashboardCustomers.length} klanten</span>
         </div>
       </section>
 
@@ -506,24 +746,25 @@ function Dashboard({
         <PanelHeader title="Recente facturen" action="Nieuwe factuur" onAction={() => onNavigate('invoice-create')} />
         <DataTable
           columns={['Factuur', 'Klant', 'Vervaldatum', 'Bedrag', 'Status']}
-          rows={dashboardInvoices.slice(0, 4).map((invoice) => [invoice.number, nameFor(invoice.customerId), invoice.due, eur.format(invoice.amount), <Status key={invoice.id} label={invoice.status} />])}
+          rows={dashboardInvoices.slice(0, 4).map((invoice) => [invoice.number, nameFor(invoice.customerId, dashboardCustomers), invoice.due, eur.format(invoice.amount), <Status key={invoice.id} label={invoice.status} />])}
         />
       </section>
     </div>
   )
 }
 
-function Customers({ customers, onSelect }: { customers: Customer[]; onSelect: (id: string) => void }) {
+function Customers({ customers, onAdd, onSelect }: { customers: Customer[]; onAdd: () => void; onSelect: (id: string) => void }) {
   return (
     <section className="panel">
-      <PanelHeader title="Klantenoverzicht" action="Klant toevoegen" />
+      <PanelHeader title="Klantenoverzicht" action="Klant toevoegen" onAction={onAdd} />
       <DataTable
-        columns={['Bedrijf', 'Contactpersoon', 'E-mail', 'Telefoon', 'Omzet', '']}
+        columns={['Bedrijf', 'Contactpersoon', 'E-mail', 'Telefoon', 'Plaats', 'Omzet', '']}
         rows={customers.map((customer) => [
           customer.name,
           customer.contact,
           customer.email,
           customer.phone,
+          customer.city,
           eur.format(customer.revenue),
           <button key={customer.id} className="table-link" onClick={() => onSelect(customer.id)}>Openen</button>,
         ])}
@@ -532,19 +773,94 @@ function Customers({ customers, onSelect }: { customers: Customer[]; onSelect: (
   )
 }
 
-function CustomerDetail({ customer, onBack }: { customer: Customer; onBack: () => void }) {
+function CustomerForm({
+  activeCompanyId,
+  customer,
+  onCancel,
+  onSave,
+}: {
+  activeCompanyId: string
+  customer?: Customer
+  onCancel: () => void
+  onSave: (customer: Customer) => void
+}) {
+  const [form, setForm] = useState<Customer>(() => customer ?? {
+    id: `cus_${Date.now()}`,
+    companyId: activeCompanyId,
+    name: '',
+    contact: '',
+    email: '',
+    phone: '',
+    address: '',
+    postalCode: '',
+    city: '',
+    vat: '',
+    chamber: '',
+    revenue: 0,
+  })
+  const [error, setError] = useState('')
+
+  const update = (field: keyof Customer, value: string | number) => setForm((current) => ({ ...current, [field]: value }))
+  const submit = () => {
+    if (!form.name.trim() || !form.email.includes('@') || !form.city.trim()) {
+      setError('Vul minimaal bedrijfsnaam, geldig e-mailadres en plaats in.')
+      return
+    }
+
+    onSave({ ...form, companyId: activeCompanyId })
+  }
+
+  return (
+    <section className="panel">
+      <PanelHeader title={customer ? 'Klant bewerken' : 'Klant toevoegen'} />
+      {error && <p className="form-error">{error}</p>}
+      <div className="form-grid">
+        <label>Bedrijfsnaam<input value={form.name} onChange={(event) => update('name', event.target.value)} /></label>
+        <label>Contactpersoon<input value={form.contact} onChange={(event) => update('contact', event.target.value)} /></label>
+        <label>E-mail<input value={form.email} onChange={(event) => update('email', event.target.value)} /></label>
+        <label>Telefoon<input value={form.phone} onChange={(event) => update('phone', event.target.value)} /></label>
+        <label>Adres<input value={form.address} onChange={(event) => update('address', event.target.value)} /></label>
+        <label>Postcode<input value={form.postalCode} onChange={(event) => update('postalCode', event.target.value)} /></label>
+        <label>Plaats<input value={form.city} onChange={(event) => update('city', event.target.value)} /></label>
+        <label>BTW-nummer<input value={form.vat} onChange={(event) => update('vat', event.target.value)} /></label>
+        <label>KvK-nummer<input value={form.chamber} onChange={(event) => update('chamber', event.target.value)} /></label>
+      </div>
+      <div className="invoice-actions">
+        <button className="primary" onClick={submit}>Klant opslaan</button>
+        <button className="ghost" onClick={onCancel}>Annuleren</button>
+      </div>
+    </section>
+  )
+}
+
+function CustomerDetail({
+  customer,
+  invoices,
+  quotes,
+  onBack,
+  onEdit,
+}: {
+  customer: Customer
+  invoices: Invoice[]
+  quotes: Quote[]
+  onBack: () => void
+  onEdit: () => void
+}) {
   const customerInvoices = invoices.filter((invoice) => invoice.customerId === customer.id)
   const customerQuotes = quotes.filter((quote) => quote.customerId === customer.id)
   return (
     <div className="content-grid">
       <section className="panel">
         <button className="table-link" onClick={onBack}>Terug naar klanten</button>
-        <h2>{customer.name}</h2>
+        <div className="panel-header flush">
+          <h2>{customer.name}</h2>
+          <button className="primary" onClick={onEdit}>Klant bewerken</button>
+        </div>
         <div className="detail-list">
           <span>Contactpersoon<strong>{customer.contact}</strong></span>
           <span>E-mail<strong>{customer.email}</strong></span>
           <span>Telefoon<strong>{customer.phone}</strong></span>
-          <span>Adres<strong>{customer.address}</strong></span>
+          <span>Adres<strong>{customer.address}, {customer.postalCode} {customer.city}</strong></span>
           <span>BTW-nummer<strong>{customer.vat}</strong></span>
           <span>KvK-nummer<strong>{customer.chamber}</strong></span>
         </div>
@@ -561,7 +877,17 @@ function CustomerDetail({ customer, onBack }: { customer: Customer; onBack: () =
   )
 }
 
-function Invoices({ invoices, onCreate }: { invoices: Invoice[]; onCreate: () => void }) {
+function Invoices({
+  invoices,
+  customers,
+  onCreate,
+  onSelect,
+}: {
+  invoices: Invoice[]
+  customers: Customer[]
+  onCreate: () => void
+  onSelect: (id: string) => void
+}) {
   return (
     <section className="panel">
       <PanelHeader title="Factuuroverzicht" action="Nieuwe factuur" onAction={onCreate} />
@@ -572,37 +898,80 @@ function Invoices({ invoices, onCreate }: { invoices: Invoice[]; onCreate: () =>
         columns={['Factuur', 'Klant', 'Datum', 'Vervaldatum', 'Bedrag', 'BTW', 'Status', 'Actie']}
         rows={invoices.map((invoice) => [
           invoice.number,
-          nameFor(invoice.customerId),
+          nameFor(invoice.customerId, customers),
           invoice.date,
           invoice.due,
           eur.format(invoice.amount),
           eur.format(invoice.vat),
           <Status key={invoice.id} label={invoice.status} />,
-          invoice.status === 'Betaald' ? 'PDF-preview' : 'Betaling registreren',
+          <button key={invoice.id} className="table-link" onClick={() => onSelect(invoice.id)}>Openen</button>,
         ])}
       />
     </section>
   )
 }
 
-function InvoiceCreate({ rows, total, onRowsChange, onBack }: { rows: InvoiceRow[]; total: number; onRowsChange: (rows: InvoiceRow[]) => void; onBack: () => void }) {
+function InvoiceCreate({
+  activeCompanyId,
+  customers,
+  number,
+  rows,
+  total,
+  onRowsChange,
+  onBack,
+  onSave,
+}: {
+  activeCompanyId: string
+  customers: Customer[]
+  number: string
+  rows: InvoiceRow[]
+  total: number
+  onRowsChange: (rows: InvoiceRow[]) => void
+  onBack: () => void
+  onSave: (invoice: Invoice) => void
+}) {
+  const [customerId, setCustomerId] = useState(customers[0]?.id ?? '')
+  const [invoiceDate, setInvoiceDate] = useState(todayIso())
+  const [dueDate, setDueDate] = useState(addDaysIso(14))
+  const [status, setStatus] = useState<InvoiceStatus>('Concept')
+  const [error, setError] = useState('')
   const addRow = () => onRowsChange([...rows, { description: 'Nieuwe regel', quantity: 1, price: 0, vat: 21 }])
   const subtotal = rows.reduce((sum, row) => sum + row.quantity * row.price, 0)
   const vatTotal = total - subtotal
   const removeRow = (index: number) => onRowsChange(rows.filter((_, rowIndex) => rowIndex !== index))
+  const save = () => {
+    if (!customerId || rows.some((row) => !row.description.trim() || row.quantity <= 0 || row.price < 0)) {
+      setError('Kies een klant en vul alle factuurregels correct in.')
+      return
+    }
+
+    onSave({
+      id: `inv_${Date.now()}`,
+      companyId: activeCompanyId,
+      customerId,
+      number,
+      date: invoiceDate,
+      due: dueDate,
+      amount: total,
+      vat: vatTotal,
+      status,
+      items: rows,
+    })
+  }
 
   return (
     <div className="invoice-builder">
       <section className="panel">
         <button className="table-link" onClick={onBack}>Terug naar facturen</button>
-        <PanelHeader title="Nieuwe factuur" action="Concept opslaan" />
+        <PanelHeader title="Nieuwe factuur" />
+        {error && <p className="form-error">{error}</p>}
         <div className="form-grid">
-          <label>Klant<select><option>Studio Veldkamp</option><option>Rijnhaven Logistics</option><option>Nordbyte Systems</option></select></label>
-          <label>Factuurnummer<input defaultValue="2026-0143" /></label>
-          <label>Factuurdatum<input type="date" defaultValue="2026-07-02" /></label>
-          <label>Vervaldatum<input type="date" defaultValue="2026-07-16" /></label>
-          <label>Betalingstermijn<select defaultValue="14 dagen"><option>7 dagen</option><option>14 dagen</option><option>30 dagen</option></select></label>
-          <label>Status<select defaultValue="Concept"><option>Concept</option><option>Verzonden</option><option>Betaald</option></select></label>
+          <label>Klant<select value={customerId} onChange={(event) => setCustomerId(event.target.value)}>{customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}</option>)}</select></label>
+          <label>Factuurnummer<input value={number} readOnly /></label>
+          <label>Factuurdatum<input type="date" value={invoiceDate} onChange={(event) => setInvoiceDate(event.target.value)} /></label>
+          <label>Vervaldatum<input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} /></label>
+          <label>Betalingstermijn<select value={dueDate} onChange={(event) => setDueDate(addDaysIso(Number(event.target.value)))}><option value={addDaysIso(7)}>7 dagen</option><option value={addDaysIso(14)}>14 dagen</option><option value={addDaysIso(30)}>30 dagen</option></select></label>
+          <label>Status<select value={status} onChange={(event) => setStatus(event.target.value as InvoiceStatus)}><option>Concept</option><option>Verzonden</option><option>Betaald</option><option>Verlopen</option></select></label>
         </div>
         <div className="line-header">
           <span>Omschrijving</span>
@@ -626,14 +995,15 @@ function InvoiceCreate({ rows, total, onRowsChange, onBack }: { rows: InvoiceRow
         </div>
         <div className="invoice-actions">
           <button className="ghost" onClick={addRow}><Plus size={17} /> Regel toevoegen</button>
+          <button className="primary" onClick={save}>Factuur opslaan</button>
         </div>
       </section>
       <aside className="panel preview">
         <p className="eyebrow">PDF-preview</p>
-        <h2>Factuur 2026-0143</h2>
+        <h2>Factuur {number}</h2>
         <div className="preview-meta">
-          <span>Studio Veldkamp</span>
-          <span>Vervalt op 16 juli 2026</span>
+          <span>{nameFor(customerId, customers)}</span>
+          <span>Vervalt op {dueDate}</span>
         </div>
         <div className="preview-lines">
           {rows.map((row, index) => (
@@ -648,29 +1018,239 @@ function InvoiceCreate({ rows, total, onRowsChange, onBack }: { rows: InvoiceRow
           <span>BTW<strong>{eur.format(vatTotal)}</strong></span>
           <span className="summary-total">Totaal<strong>{eur.format(total)}</strong></span>
         </div>
-        <Status label="Concept" />
-        <button className="primary full">Factuur verzenden</button>
+        <Status label={status} />
+        <button className="primary full" onClick={save}>Factuur opslaan</button>
       </aside>
     </div>
   )
 }
 
-function Quotes({ quotes }: { quotes: Quote[] }) {
+function InvoiceDetail({
+  invoice,
+  customers,
+  onBack,
+  onStatusChange,
+}: {
+  invoice: Invoice
+  customers: Customer[]
+  onBack: () => void
+  onStatusChange: (invoiceId: string, status: InvoiceStatus) => void
+}) {
+  const totals = calculateTotals(invoice.items)
+  return (
+    <div className="invoice-builder">
+      <section className="panel">
+        <button className="table-link" onClick={onBack}>Terug naar facturen</button>
+        <div className="panel-header flush">
+          <h2>Factuur {invoice.number}</h2>
+          <Status label={invoice.status} />
+        </div>
+        <div className="detail-list">
+          <span>Klant<strong>{nameFor(invoice.customerId, customers)}</strong></span>
+          <span>Factuurdatum<strong>{invoice.date}</strong></span>
+          <span>Vervaldatum<strong>{invoice.due}</strong></span>
+          <span>company_id<strong>{invoice.companyId}</strong></span>
+        </div>
+        <DataTable
+          columns={['Omschrijving', 'Aantal', 'Prijs', 'BTW', 'Totaal']}
+          rows={invoice.items.map((item) => [item.description, String(item.quantity), eur.format(item.price), `${item.vat}%`, eur.format(item.quantity * item.price * (1 + item.vat / 100))])}
+        />
+        <div className="invoice-actions">
+          {(['Concept', 'Verzonden', 'Betaald', 'Verlopen'] as InvoiceStatus[]).map((status) => (
+            <button key={status} className={invoice.status === status ? 'primary' : 'ghost'} onClick={() => onStatusChange(invoice.id, status)}>
+              {status}
+            </button>
+          ))}
+        </div>
+      </section>
+      <aside className="panel preview">
+        <p className="eyebrow">Print-preview</p>
+        <h2>{invoice.number}</h2>
+        <div className="invoice-summary">
+          <span>Subtotaal<strong>{eur.format(totals.subtotal)}</strong></span>
+          <span>BTW<strong>{eur.format(totals.vatTotal)}</strong></span>
+          <span className="summary-total">Totaal<strong>{eur.format(totals.total)}</strong></span>
+        </div>
+        <button className="primary full" onClick={() => window.print()}>Printen</button>
+      </aside>
+    </div>
+  )
+}
+
+function Quotes({
+  quotes,
+  customers,
+  onCreate,
+  onSelect,
+}: {
+  quotes: Quote[]
+  customers: Customer[]
+  onCreate: () => void
+  onSelect: (id: string) => void
+}) {
   return (
     <section className="panel">
-      <PanelHeader title="Offerte overzicht" action="Nieuwe offerte" />
+      <PanelHeader title="Offerte overzicht" action="Nieuwe offerte" onAction={onCreate} />
       <DataTable
         columns={['Offerte', 'Klant', 'Geldig tot', 'Bedrag', 'Status', 'Actie']}
-        rows={quotes.map((quote) => [quote.number, nameFor(quote.customerId), quote.validUntil, eur.format(quote.amount), <Status key={quote.id} label={quote.status} />, quote.status === 'Geaccepteerd' ? 'Omzetten naar factuur' : 'PDF-preview'])}
+        rows={quotes.map((quote) => [
+          quote.number,
+          nameFor(quote.customerId, customers),
+          quote.validUntil,
+          eur.format(quote.amount),
+          <Status key={quote.id} label={quote.status} />,
+          <button key={quote.id} className="table-link" onClick={() => onSelect(quote.id)}>Openen</button>,
+        ])}
       />
     </section>
+  )
+}
+
+function QuoteCreate({
+  activeCompanyId,
+  customers,
+  number,
+  onBack,
+  onSave,
+}: {
+  activeCompanyId: string
+  customers: Customer[]
+  number: string
+  onBack: () => void
+  onSave: (quote: Quote) => void
+}) {
+  const [customerId, setCustomerId] = useState(customers[0]?.id ?? '')
+  const [validUntil, setValidUntil] = useState(addDaysIso(21))
+  const [status, setStatus] = useState<QuoteStatus>('Concept')
+  const [rows, setRows] = useState<InvoiceRow[]>([{ description: 'Nieuw voorstel', quantity: 1, price: 1500, vat: 21 }])
+  const [error, setError] = useState('')
+  const totals = calculateTotals(rows)
+  const addRow = () => setRows([...rows, { description: 'Nieuwe regel', quantity: 1, price: 0, vat: 21 }])
+  const save = () => {
+    if (!customerId || rows.some((row) => !row.description.trim() || row.quantity <= 0 || row.price < 0)) {
+      setError('Kies een klant en vul alle offerteregels correct in.')
+      return
+    }
+
+    onSave({
+      id: `quo_${Date.now()}`,
+      companyId: activeCompanyId,
+      customerId,
+      number,
+      amount: totals.total,
+      vat: totals.vatTotal,
+      status,
+      validUntil,
+      items: rows,
+    })
+  }
+
+  return (
+    <div className="invoice-builder">
+      <section className="panel">
+        <button className="table-link" onClick={onBack}>Terug naar offertes</button>
+        <PanelHeader title="Nieuwe offerte" />
+        {error && <p className="form-error">{error}</p>}
+        <div className="form-grid">
+          <label>Klant<select value={customerId} onChange={(event) => setCustomerId(event.target.value)}>{customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}</option>)}</select></label>
+          <label>Offertenummer<input value={number} readOnly /></label>
+          <label>Geldig tot<input type="date" value={validUntil} onChange={(event) => setValidUntil(event.target.value)} /></label>
+          <label>Status<select value={status} onChange={(event) => setStatus(event.target.value as QuoteStatus)}><option>Concept</option><option>Verzonden</option><option>Geaccepteerd</option><option>Afgewezen</option></select></label>
+        </div>
+        <div className="line-header">
+          <span>Omschrijving</span>
+          <span>Aantal</span>
+          <span>Prijs</span>
+          <span>BTW</span>
+          <span>Totaal</span>
+          <span></span>
+        </div>
+        <div className="line-items">
+          {rows.map((row, index) => (
+            <div className="line-row" key={`${row.description}-${index}`}>
+              <input value={row.description} onChange={(event) => updateRow(rows, setRows, index, 'description', event.target.value)} />
+              <input type="number" value={row.quantity} onChange={(event) => updateRow(rows, setRows, index, 'quantity', Number(event.target.value))} />
+              <input type="number" value={row.price} onChange={(event) => updateRow(rows, setRows, index, 'price', Number(event.target.value))} />
+              <select value={row.vat} onChange={(event) => updateRow(rows, setRows, index, 'vat', Number(event.target.value))}><option value={21}>21%</option><option value={9}>9%</option><option value={0}>0%</option></select>
+              <strong>{eur.format(row.quantity * row.price * (1 + row.vat / 100))}</strong>
+              <button className="icon-button compact" onClick={() => setRows(rows.filter((_, rowIndex) => rowIndex !== index))} aria-label="Regel verwijderen"><X size={16} /></button>
+            </div>
+          ))}
+        </div>
+        <div className="invoice-actions">
+          <button className="ghost" onClick={addRow}><Plus size={17} /> Regel toevoegen</button>
+          <button className="primary" onClick={save}>Offerte opslaan</button>
+        </div>
+      </section>
+      <aside className="panel preview">
+        <p className="eyebrow">Offerte-preview</p>
+        <h2>{number}</h2>
+        <div className="preview-meta">
+          <span>{nameFor(customerId, customers)}</span>
+          <span>Geldig tot {validUntil}</span>
+        </div>
+        <div className="invoice-summary">
+          <span>Subtotaal<strong>{eur.format(totals.subtotal)}</strong></span>
+          <span>BTW<strong>{eur.format(totals.vatTotal)}</strong></span>
+          <span className="summary-total">Totaal<strong>{eur.format(totals.total)}</strong></span>
+        </div>
+        <Status label={status} />
+      </aside>
+    </div>
+  )
+}
+
+function QuoteDetail({
+  quote,
+  customers,
+  onBack,
+  onConvert,
+}: {
+  quote: Quote
+  customers: Customer[]
+  onBack: () => void
+  onConvert: (quote: Quote) => void
+}) {
+  const totals = calculateTotals(quote.items)
+  return (
+    <div className="invoice-builder">
+      <section className="panel">
+        <button className="table-link" onClick={onBack}>Terug naar offertes</button>
+        <div className="panel-header flush">
+          <h2>Offerte {quote.number}</h2>
+          <Status label={quote.status} />
+        </div>
+        <div className="detail-list">
+          <span>Klant<strong>{nameFor(quote.customerId, customers)}</strong></span>
+          <span>Geldig tot<strong>{quote.validUntil}</strong></span>
+          <span>company_id<strong>{quote.companyId}</strong></span>
+        </div>
+        <DataTable
+          columns={['Omschrijving', 'Aantal', 'Prijs', 'BTW', 'Totaal']}
+          rows={quote.items.map((item) => [item.description, String(item.quantity), eur.format(item.price), `${item.vat}%`, eur.format(item.quantity * item.price * (1 + item.vat / 100))])}
+        />
+        <div className="invoice-actions">
+          <button className="primary" onClick={() => onConvert(quote)}>Omzetten naar factuur</button>
+          <button className="ghost" onClick={() => window.print()}>Printen</button>
+        </div>
+      </section>
+      <aside className="panel preview">
+        <p className="eyebrow">Offerte-preview</p>
+        <h2>{quote.number}</h2>
+        <div className="invoice-summary">
+          <span>Subtotaal<strong>{eur.format(totals.subtotal)}</strong></span>
+          <span>BTW<strong>{eur.format(totals.vatTotal)}</strong></span>
+          <span className="summary-total">Totaal<strong>{eur.format(totals.total)}</strong></span>
+        </div>
+      </aside>
+    </div>
   )
 }
 
 function Companies({ activeCompanyId, onSelect }: { activeCompanyId: string; onSelect: (companyId: string) => void }) {
   return (
     <section className="panel">
-      <PanelHeader title="Bedrijven en administraties" action="Bedrijf toevoegen" />
+      <PanelHeader title="Bedrijven en administraties" />
       <DataTable
         columns={['Bedrijf', 'Rol', 'Pakket', 'Tenant key', 'Status']}
         rows={companies.map((company) => [
@@ -691,7 +1271,7 @@ function Roles() {
   return (
     <div className="content-grid">
       <section className="panel wide">
-        <PanelHeader title="Rollen en rechten" action="Rol toevoegen" />
+        <PanelHeader title="Rollen en rechten" />
         <DataTable columns={['Rol', 'Toegang']} rows={roles.map((role) => [role.name, role.access])} />
       </section>
       <SettingsBlock icon={<ShieldCheck />} title="RBAC-principe" text="Elke actie wordt straks gecontroleerd op user_id, company_id en rol." />
@@ -733,7 +1313,7 @@ function DesignSystem() {
   return (
     <div className="content-grid">
       <section className="panel wide">
-        <PanelHeader title="Design-system basis" action="Component toevoegen" />
+        <PanelHeader title="Design-system basis" />
         <div className="design-grid">
           <div><span>Kleur</span><strong>Zakelijk blauw</strong><em className="swatch blue"></em></div>
           <div><span>Succes</span><strong>Groen</strong><em className="swatch green"></em></div>
@@ -818,8 +1398,42 @@ function updateRow(
   onRowsChange(rows.map((row, rowIndex) => (rowIndex === index ? { ...row, [field]: value } : row)))
 }
 
-function nameFor(customerId: string) {
-  return customers.find((customer) => customer.id === customerId)?.name ?? 'Onbekende klant'
+function calculateTotals(rows: InvoiceRow[]) {
+  return rows.reduce(
+    (totals, row) => {
+      const subtotal = row.quantity * row.price
+      const vat = subtotal * (row.vat / 100)
+      return {
+        subtotal: totals.subtotal + subtotal,
+        vatTotal: totals.vatTotal + vat,
+        total: totals.total + subtotal + vat,
+      }
+    },
+    { subtotal: 0, vatTotal: 0, total: 0 },
+  )
+}
+
+function nextNumber(existingNumbers: string[], prefix: string) {
+  const next = existingNumbers.reduce((highest, number) => {
+    const current = Number(number.split('-').at(-1))
+    return Number.isFinite(current) && current > highest ? current : highest
+  }, 0) + 1
+
+  return `${prefix}-${String(next).padStart(4, '0')}`
+}
+
+function todayIso() {
+  return new Date().toISOString().slice(0, 10)
+}
+
+function addDaysIso(days: number) {
+  const date = new Date()
+  date.setDate(date.getDate() + days)
+  return date.toISOString().slice(0, 10)
+}
+
+function nameFor(customerId: string, sourceCustomers: Customer[] = customers) {
+  return sourceCustomers.find((customer) => customer.id === customerId)?.name ?? 'Onbekende klant'
 }
 
 function titleFor(screen: Screen) {
@@ -828,10 +1442,14 @@ function titleFor(screen: Screen) {
     onboarding: 'Onboarding',
     dashboard: 'Dashboard',
     customers: 'Klanten',
+    'customer-form': 'Klant toevoegen',
     'customer-detail': 'Klant detail',
     invoices: 'Facturen',
     'invoice-create': 'Factuur aanmaken',
+    'invoice-detail': 'Factuur detail',
     quotes: 'Offertes',
+    'quote-create': 'Offerte aanmaken',
+    'quote-detail': 'Offerte detail',
     companies: 'Bedrijven',
     roles: 'Rollen en rechten',
     database: 'Database',
