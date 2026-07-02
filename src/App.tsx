@@ -20,6 +20,7 @@ import {
   BarChart3,
   Bell,
   BookOpen,
+  Bot,
   BriefcaseBusiness,
   Building2,
   Check,
@@ -62,6 +63,7 @@ type Screen =
   | 'vat'
   | 'reports'
   | 'tasks'
+  | 'ai'
   | 'settings'
   | 'subscription'
 
@@ -245,6 +247,7 @@ const navItems = [
   ['vat', BadgeEuro, 'BTW'],
   ['reports', BarChart3, 'Rapportages'],
   ['tasks', ClipboardCheck, 'Taken'],
+  ['ai', Bot, 'AI Assistent'],
   ['settings', Settings, 'Instellingen'],
   ['subscription', CreditCard, 'Abonnement'],
 ] as const
@@ -356,6 +359,7 @@ function App() {
         {screen === 'vat' && <Vat />}
         {screen === 'reports' && <Reports />}
         {screen === 'tasks' && <Tasks />}
+        {screen === 'ai' && <AiAssistant onNavigate={navigate} />}
         {screen === 'settings' && <SettingsPage />}
         {screen === 'subscription' && <Subscription />}
       </main>
@@ -690,6 +694,80 @@ function Tasks() {
   )
 }
 
+function AiAssistant({ onNavigate }: { onNavigate: (screen: Screen) => void }) {
+  const automations = [
+    {
+      title: '3 banktransacties kunnen automatisch gekoppeld worden',
+      text: 'NOVA herkent bedragen, omschrijvingen en openstaande facturen en stelt directe matches voor.',
+      action: 'Bank openen',
+      target: 'bank' as Screen,
+    },
+    {
+      title: 'BTW Q2 lijkt compleet, maar mist 1 bon',
+      text: 'Controleer de Google Workspace bon voordat de aangifte wordt voorbereid.',
+      action: 'Bonnen openen',
+      target: 'documents' as Screen,
+    },
+    {
+      title: 'Factuur 2026-0140 verdient opvolging',
+      text: 'De betalingstermijn is verlopen. NOVA kan een vriendelijke herinnering voorbereiden.',
+      action: 'Facturen openen',
+      target: 'invoices' as Screen,
+    },
+  ]
+
+  return (
+    <div className="ai-layout">
+      <section className="panel ai-hero">
+        <div>
+          <p className="eyebrow">AI-first administratie</p>
+          <h2>Laat NOVA het uitzoekwerk doen</h2>
+          <p>
+            De assistent combineert facturen, bankregels, bonnen, BTW en taken tot concrete voorstellen die je met minimale klikken kunt verwerken.
+          </p>
+        </div>
+        <div className="ai-command">
+          <Bot size={22} />
+          <input defaultValue="Welke administratiepunten vragen vandaag aandacht?" />
+          <button className="primary">Vraag NOVA</button>
+        </div>
+      </section>
+
+      <section className="panel wide">
+        <PanelHeader title="Slimme voorstellen" />
+        <div className="automation-grid">
+          {automations.map((item) => (
+            <article className="automation-card" key={item.title}>
+              <div className="automation-icon"><Sparkles size={18} /></div>
+              <h3>{item.title}</h3>
+              <p>{item.text}</p>
+              <button className="table-link" onClick={() => onNavigate(item.target)}>{item.action}</button>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="panel">
+        <PanelHeader title="AI-boekingswachtrij" action="Alles beoordelen" />
+        <div className="ai-queue">
+          <span><strong>Google Workspace</strong><small>Voorstel: Software, 21% BTW, confidence 94%</small></span>
+          <span><strong>Lunch klantmeeting</strong><small>Voorstel: Representatie, BTW beperkt aftrekbaar, confidence 88%</small></span>
+          <span><strong>Betaling Rijnhaven</strong><small>Voorstel: Match met factuur 2026-0141, confidence 99%</small></span>
+        </div>
+      </section>
+
+      <section className="panel">
+        <PanelHeader title="Vandaag aanbevolen" />
+        <div className="recommendation-list">
+          <button onClick={() => onNavigate('vat')}><BadgeEuro size={17} /> BTW-rapport voorbereiden</button>
+          <button onClick={() => onNavigate('reports')}><BarChart3 size={17} /> Managementsamenvatting maken</button>
+          <button onClick={() => onNavigate('tasks')}><ClipboardCheck size={17} /> Open taken prioriteren</button>
+        </div>
+      </section>
+    </div>
+  )
+}
+
 function SettingsPage() {
   return (
     <div className="content-grid">
@@ -793,6 +871,7 @@ function titleFor(screen: Screen) {
     vat: 'BTW-dashboard',
     reports: 'Rapportages',
     tasks: 'Taken',
+    ai: 'AI Assistent',
     settings: 'Instellingen',
     subscription: 'Abonnement',
   }

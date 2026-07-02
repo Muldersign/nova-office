@@ -647,6 +647,129 @@ th {
   color: var(--muted);
 }
 
+.ai-layout {
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(320px, 0.8fr);
+  gap: 18px;
+}
+
+.ai-hero {
+  grid-column: 1 / -1;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.7fr);
+  gap: 24px;
+  align-items: center;
+  background:
+    linear-gradient(135deg, rgba(24, 119, 242, 0.1), rgba(19, 163, 111, 0.08)),
+    #fff;
+}
+
+.ai-hero h2 {
+  margin: 0 0 10px;
+  font-size: 34px;
+}
+
+.ai-hero p {
+  max-width: 720px;
+  color: var(--muted);
+  margin: 0;
+}
+
+.ai-command {
+  display: grid;
+  grid-template-columns: auto 1fr;
+  gap: 10px;
+  align-items: center;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.ai-command svg {
+  color: var(--blue);
+}
+
+.ai-command input {
+  border: 0;
+  padding: 0;
+  min-height: 36px;
+}
+
+.ai-command .primary {
+  grid-column: 1 / -1;
+}
+
+.automation-grid {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.automation-card {
+  min-height: 210px;
+  display: grid;
+  align-content: start;
+  gap: 12px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.automation-card h3 {
+  margin: 0;
+  font-size: 18px;
+}
+
+.automation-card p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.automation-icon {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  border-radius: 8px;
+  background: var(--blue-soft);
+  color: var(--blue);
+}
+
+.ai-queue,
+.recommendation-list {
+  display: grid;
+  gap: 10px;
+}
+
+.ai-queue span,
+.recommendation-list button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 58px;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.ai-queue strong,
+.ai-queue small {
+  display: block;
+}
+
+.ai-queue small {
+  color: var(--muted);
+}
+
+.recommendation-list button {
+  justify-content: flex-start;
+  color: var(--ink);
+  font-weight: 800;
+}
+
 .plans {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -696,6 +819,12 @@ th {
   }
 
   .content-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .ai-layout,
+  .ai-hero,
+  .automation-grid {
     grid-template-columns: 1fr;
   }
 
