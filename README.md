@@ -42,6 +42,15 @@ De app is voorbereid op multi-tenant gebruik. Alle demo-entiteiten bevatten een 
 
 De huidige MVP bewaart klant-, factuur-, offerte- en auditdata persistent in de browser. Dit is bewust een tussenstap richting een echte backend: de UI en domeinregels gedragen zich al alsof er een werkruimte bestaat, terwijl de volgende fase de opslag verplaatst naar API + database.
 
+Er is nu ook een eerste backendfoundation aanwezig:
+
+- TypeScript database-schema in `src/backend/schema.ts`
+- Tenant-aware repositorylaag in `src/backend/repository.ts`
+- Rollen/rechten in `src/backend/auth.ts`
+- API-contracthandlers in `src/backend/api.ts`
+- Eerste SQL-migratie in `database/migrations/001_foundation.sql`
+- Backendtests voor tenant-isolatie, rechten en audit-events
+
 Fase-1 kernentiteiten:
 
 - Users
