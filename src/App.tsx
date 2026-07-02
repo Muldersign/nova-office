@@ -2,12 +2,7 @@ import { type ReactNode, useMemo, useState } from 'react'
 import {
   Area,
   AreaChart,
-  Bar,
-  BarChart,
   CartesianGrid,
-  Cell,
-  Pie,
-  PieChart,
   ResponsiveContainer,
   Tooltip,
   XAxis,
@@ -15,22 +10,14 @@ import {
 } from 'recharts'
 import {
   ArrowRight,
-  BadgeEuro,
-  Banknote,
-  BarChart3,
   Bell,
   BookOpen,
-  Bot,
   BriefcaseBusiness,
   Building2,
   Check,
-  ChevronDown,
-  ClipboardCheck,
-  CreditCard,
   FileCheck2,
   FilePlus2,
   FileText,
-  FolderOpen,
   LayoutDashboard,
   LogIn,
   Menu,
@@ -40,11 +27,11 @@ import {
   Settings,
   ShieldCheck,
   Sparkles,
-  Upload,
   Users,
   WalletCards,
   X,
 } from 'lucide-react'
+import { foundationRules, foundationSchema, tenantScopedTables } from './foundation/database'
 import './App.css'
 
 type Screen =
@@ -56,6 +43,10 @@ type Screen =
   | 'invoices'
   | 'invoice-create'
   | 'quotes'
+  | 'companies'
+  | 'roles'
+  | 'database'
+  | 'design-system'
   | 'products'
   | 'accounting'
   | 'bank'
@@ -105,25 +96,6 @@ type Quote = {
   validUntil: string
 }
 
-type Transaction = {
-  id: string
-  companyId: string
-  date: string
-  description: string
-  amount: number
-  status: 'Gematcht' | 'Niet gematcht'
-  category: string
-}
-
-type Task = {
-  id: string
-  companyId: string
-  title: string
-  due: string
-  type: string
-  done: boolean
-}
-
 type InvoiceRow = {
   description: string
   quantity: number
@@ -132,6 +104,18 @@ type InvoiceRow = {
 }
 
 const companyId = 'comp_nova_demo'
+
+const companies = [
+  { id: 'comp_nova_demo', name: 'NOVA Demo BV', role: 'Eigenaar', plan: 'NOVA Start' },
+  { id: 'comp_orbit_studio', name: 'Orbit Studio VOF', role: 'Beheerder', plan: 'NOVA Start' },
+]
+
+const roles = [
+  { name: 'Eigenaar', access: 'Volledige toegang tot bedrijf, gebruikers, facturen en instellingen' },
+  { name: 'Beheerder', access: 'Kan klanten, facturen en offertes beheren, maar geen eigenaarschap wijzigen' },
+  { name: 'Financieel medewerker', access: 'Kan facturen en offertes maken, klantgegevens bekijken en exports voorbereiden' },
+  { name: 'Lezer', access: 'Alleen lezen voor dashboard, klanten, facturen en offertes' },
+]
 
 const customers: Customer[] = [
   {
@@ -170,6 +154,18 @@ const customers: Customer[] = [
     chamber: '74281033',
     revenue: 12780,
   },
+  {
+    id: 'cus_04',
+    companyId: 'comp_orbit_studio',
+    name: 'Helder Merkadvies',
+    contact: 'Lotte Kramer',
+    email: 'lotte@heldermerk.nl',
+    phone: '070 320 4402',
+    address: 'Noordeinde 88, Den Haag',
+    vat: 'NL809912344B01',
+    chamber: '63091244',
+    revenue: 8420,
+  },
 ]
 
 const invoices: Invoice[] = [
@@ -177,26 +173,14 @@ const invoices: Invoice[] = [
   { id: 'inv_02', companyId, customerId: 'cus_02', number: '2026-0141', date: '2026-06-26', due: '2026-07-10', amount: 8470, vat: 1470, status: 'Betaald' },
   { id: 'inv_03', companyId, customerId: 'cus_03', number: '2026-0140', date: '2026-06-18', due: '2026-07-02', amount: 2118, vat: 368, status: 'Verlopen' },
   { id: 'inv_04', companyId, customerId: 'cus_01', number: '2026-0139', date: '2026-06-15', due: '2026-06-29', amount: 1452, vat: 252, status: 'Concept' },
+  { id: 'inv_05', companyId: 'comp_orbit_studio', customerId: 'cus_04', number: '2026-0031', date: '2026-07-01', due: '2026-07-15', amount: 1815, vat: 315, status: 'Verzonden' },
 ]
 
 const quotes: Quote[] = [
   { id: 'quo_01', companyId, customerId: 'cus_03', number: 'OFF-2026-055', amount: 6400, status: 'Verzonden', validUntil: '2026-07-18' },
   { id: 'quo_02', companyId, customerId: 'cus_01', number: 'OFF-2026-054', amount: 2800, status: 'Geaccepteerd', validUntil: '2026-07-08' },
   { id: 'quo_03', companyId, customerId: 'cus_02', number: 'OFF-2026-053', amount: 11900, status: 'Concept', validUntil: '2026-07-26' },
-]
-
-const transactions: Transaction[] = [
-  { id: 'trx_01', companyId, date: '2026-07-02', description: 'Betaling factuur 2026-0141', amount: 8470, status: 'Gematcht', category: 'Omzet' },
-  { id: 'trx_02', companyId, date: '2026-07-01', description: 'Google Workspace', amount: -96.8, status: 'Niet gematcht', category: 'Software' },
-  { id: 'trx_03', companyId, date: '2026-06-30', description: 'Lunch klantmeeting', amount: -84.15, status: 'Niet gematcht', category: 'Representatie' },
-  { id: 'trx_04', companyId, date: '2026-06-28', description: 'Kantoorhuur juli', amount: -1250, status: 'Gematcht', category: 'Huisvesting' },
-]
-
-const tasks: Task[] = [
-  { id: 'task_01', companyId, title: 'Factuur 2026-0140 opvolgen', due: 'Vandaag', type: 'Factuur verlopen', done: false },
-  { id: 'task_02', companyId, title: 'Bon Google Workspace verwerken', due: 'Morgen', type: 'Bon nog verwerken', done: false },
-  { id: 'task_03', companyId, title: 'BTW-aangifte Q2 voorbereiden', due: '15 juli', type: 'BTW', done: false },
-  { id: 'task_04', companyId, title: 'Offerte Nordbyte nabellen', due: 'Vrijdag', type: 'Offerte opvolgen', done: true },
+  { id: 'quo_04', companyId: 'comp_orbit_studio', customerId: 'cus_04', number: 'OFF-2026-012', amount: 3200, status: 'Concept', validUntil: '2026-07-28' },
 ]
 
 const monthlyData = [
@@ -209,53 +193,23 @@ const monthlyData = [
   { month: 'Jul', omzet: 15960, kosten: 6080, winst: 9880 },
 ]
 
-const products = [
-  { name: 'Adviespakket Groei', type: 'Dienst', price: 1250, vat: '21%', ledger: '8000 Omzet diensten' },
-  { name: 'Maandelijkse support', type: 'Abonnement', price: 395, vat: '21%', ledger: '8020 Recurring omzet' },
-  { name: 'Implementatie workshop', type: 'Dienst', price: 890, vat: '21%', ledger: '8000 Omzet diensten' },
-]
-
-const documents = [
-  { supplier: 'Google Ireland', date: '2026-07-01', amount: 96.8, vat: 16.8, category: 'Software', status: 'Te verwerken' },
-  { supplier: 'NS Zakelijk', date: '2026-06-29', amount: 42.4, vat: 3.5, category: 'Reiskosten', status: 'Verwerkt' },
-  { supplier: 'Spaces Amsterdam', date: '2026-06-28', amount: 1250, vat: 216.94, category: 'Huisvesting', status: 'Verwerkt' },
-]
-
-const ledgerAccounts = [
-  { code: '1000', name: 'Bank', type: 'Activa', balance: 38420 },
-  { code: '1600', name: 'Te betalen BTW', type: 'Passiva', balance: 2786 },
-  { code: '4000', name: 'Inkoopkosten', type: 'Kosten', balance: 6080 },
-  { code: '8000', name: 'Omzet diensten', type: 'Omzet', balance: 15960 },
-]
-
-const plans = [
-  ['NOVA Start', 'Dashboard, klanten, facturen, offertes en basisrapportages'],
-  ['NOVA ZZP', 'Alles uit Start plus boekhouding, BTW, bank en bonnen'],
-  ['NOVA MKB', 'Meerdere gebruikers, administraties, projecten en uitgebreide rapportages'],
-  ['NOVA Enterprise', 'Rollen, audit logs, multi-company, priority support en maatwerk'],
-]
-
 const navItems = [
   ['dashboard', LayoutDashboard, 'Dashboard'],
   ['customers', Users, 'Klanten'],
   ['invoices', FileText, 'Facturen'],
   ['quotes', FileCheck2, 'Offertes'],
-  ['products', Package, 'Producten'],
-  ['accounting', BookOpen, 'Boekhouding'],
-  ['bank', Banknote, 'Bank'],
-  ['documents', FolderOpen, 'Bonnen'],
-  ['vat', BadgeEuro, 'BTW'],
-  ['reports', BarChart3, 'Rapportages'],
-  ['tasks', ClipboardCheck, 'Taken'],
-  ['ai', Bot, 'AI Assistent'],
+  ['companies', Building2, 'Bedrijven'],
+  ['roles', ShieldCheck, 'Rollen'],
+  ['database', BookOpen, 'Database'],
+  ['design-system', Package, 'Design system'],
   ['settings', Settings, 'Instellingen'],
-  ['subscription', CreditCard, 'Abonnement'],
 ] as const
 
 const eur = new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR' })
 
 function App() {
   const [screen, setScreen] = useState<Screen>('login')
+  const [activeCompanyId, setActiveCompanyId] = useState(companyId)
   const [selectedCustomer, setSelectedCustomer] = useState(customers[0].id)
   const [menuOpen, setMenuOpen] = useState(false)
   const [invoiceRows, setInvoiceRows] = useState([
@@ -264,7 +218,8 @@ function App() {
   ])
 
   const metrics = useMemo(() => {
-    const open = invoices.filter((invoice) => invoice.status !== 'Betaald').reduce((sum, invoice) => sum + invoice.amount, 0)
+    const companyInvoices = invoices.filter((invoice) => invoice.companyId === activeCompanyId)
+    const open = companyInvoices.filter((invoice) => invoice.status !== 'Betaald').reduce((sum, invoice) => sum + invoice.amount, 0)
     const revenue = monthlyData.at(-1)?.omzet ?? 0
     const costs = monthlyData.at(-1)?.kosten ?? 0
     return {
@@ -274,9 +229,13 @@ function App() {
       profit: revenue - costs,
       vatDue: 2786,
     }
-  }, [])
+  }, [activeCompanyId])
 
-  const currentCustomer = customers.find((customer) => customer.id === selectedCustomer) ?? customers[0]
+  const companyCustomers = customers.filter((customer) => customer.companyId === activeCompanyId)
+  const companyInvoices = invoices.filter((invoice) => invoice.companyId === activeCompanyId)
+  const companyQuotes = quotes.filter((quote) => quote.companyId === activeCompanyId)
+  const activeCompany = companies.find((company) => company.id === activeCompanyId) ?? companies[0]
+  const currentCustomer = companyCustomers.find((customer) => customer.id === selectedCustomer) ?? companyCustomers[0] ?? customers[0]
   const invoiceTotal = invoiceRows.reduce((sum, row) => sum + row.quantity * row.price * (1 + row.vat / 100), 0)
 
   if (screen === 'login') {
@@ -299,10 +258,12 @@ function App() {
         <div className="company-switch">
           <Building2 size={18} />
           <div>
-            <strong>NOVA Demo BV</strong>
-            <span>company_id: comp_nova_demo</span>
+            <strong>{activeCompany.name}</strong>
+            <span>company_id: {activeCompany.id}</span>
           </div>
-          <ChevronDown size={16} />
+          <select value={activeCompanyId} onChange={(event) => setActiveCompanyId(event.target.value)}>
+            {companies.map((company) => <option key={company.id} value={company.id}>{company.name}</option>)}
+          </select>
         </div>
         <nav>
           {navItems.map(([id, Icon, label]) => (
@@ -314,8 +275,8 @@ function App() {
         </nav>
         <div className="plan-card">
           <Sparkles size={18} />
-          <strong>NOVA ZZP actief</strong>
-          <span>Boekhouding, BTW en bank zijn beschikbaar.</span>
+          <strong>MVP-fundering actief</strong>
+          <span>Authenticatie, tenants, rollen, klanten, facturen en offertes.</span>
         </div>
       </aside>
 
@@ -331,7 +292,7 @@ function App() {
           <div className="topbar-actions">
             <div className="search">
               <Search size={17} />
-              <input placeholder="Zoek facturen, klanten of transacties" />
+              <input placeholder="Zoek klanten, facturen of offertes" />
             </div>
             <button className="icon-button" aria-label="Meldingen">
               <Bell size={19} />
@@ -339,10 +300,10 @@ function App() {
           </div>
         </header>
 
-        {screen === 'dashboard' && <Dashboard metrics={metrics} onNavigate={navigate} />}
-        {screen === 'customers' && <Customers onSelect={(id) => { setSelectedCustomer(id); navigate('customer-detail') }} />}
+        {screen === 'dashboard' && <Dashboard metrics={metrics} dashboardCustomers={companyCustomers} dashboardInvoices={companyInvoices} dashboardQuotes={companyQuotes} onNavigate={navigate} />}
+        {screen === 'customers' && <Customers customers={companyCustomers} onSelect={(id) => { setSelectedCustomer(id); navigate('customer-detail') }} />}
         {screen === 'customer-detail' && <CustomerDetail customer={currentCustomer} onBack={() => navigate('customers')} />}
-        {screen === 'invoices' && <Invoices onCreate={() => navigate('invoice-create')} />}
+        {screen === 'invoices' && <Invoices invoices={companyInvoices} onCreate={() => navigate('invoice-create')} />}
         {screen === 'invoice-create' && (
           <InvoiceCreate
             rows={invoiceRows}
@@ -351,42 +312,53 @@ function App() {
             onBack={() => navigate('invoices')}
           />
         )}
-        {screen === 'quotes' && <Quotes />}
-        {screen === 'products' && <Products />}
-        {screen === 'accounting' && <Accounting />}
-        {screen === 'bank' && <Bank />}
-        {screen === 'documents' && <Documents />}
-        {screen === 'vat' && <Vat />}
-        {screen === 'reports' && <Reports />}
-        {screen === 'tasks' && <Tasks />}
-        {screen === 'ai' && <AiAssistant onNavigate={navigate} />}
+        {screen === 'quotes' && <Quotes quotes={companyQuotes} />}
+        {screen === 'companies' && <Companies activeCompanyId={activeCompanyId} onSelect={setActiveCompanyId} />}
+        {screen === 'roles' && <Roles />}
+        {screen === 'database' && <DatabaseFoundation />}
+        {screen === 'design-system' && <DesignSystem />}
         {screen === 'settings' && <SettingsPage />}
-        {screen === 'subscription' && <Subscription />}
       </main>
     </div>
   )
 }
 
 function AuthScreen({ onLogin }: { onLogin: () => void }) {
+  const [mode, setMode] = useState<'login' | 'register' | 'forgot'>('login')
+  const titles = {
+    login: 'Inloggen bij NOVA Office',
+    register: 'Nieuw account aanmaken',
+    forgot: 'Wachtwoord herstellen',
+  }
+
   return (
     <div className="auth-page">
       <section className="auth-visual">
         <Brand />
         <h1>Welkom bij NOVA Office</h1>
-        <p>Boekhouding, facturen, offertes, klanten en rapportages in een rustige SaaS-omgeving voor ondernemers.</p>
+        <p>Een schaalbare bedrijfsomgeving voor dashboard, klanten, facturen, offertes, rollen en meerdere bedrijven.</p>
         <div className="auth-stats">
-          <Metric label="Openstaande facturen" value={eur.format(7490)} />
-          <Metric label="BTW te betalen" value={eur.format(2786)} />
-          <Metric label="Taken open" value="3" />
+          <Metric label="Bedrijven" value="2" />
+          <Metric label="Rollen" value="4" />
+          <Metric label="MVP-modules" value="8" />
         </div>
       </section>
       <section className="auth-panel">
-        <p className="eyebrow">Inloggen of registreren</p>
-        <h2>Start je demo-administratie</h2>
+        <p className="eyebrow">Authenticatie</p>
+        <h2>{titles[mode]}</h2>
+        {mode === 'register' && <label>Naam<input defaultValue="Glen Mulder" /></label>}
         <label>E-mailadres<input defaultValue="ondernemer@novaoffice.nl" /></label>
-        <label>Wachtwoord<input defaultValue="novademo2026" type="password" /></label>
-        <button className="primary full" onClick={onLogin}><LogIn size={18} /> Doorgaan</button>
-        <button className="ghost full">Account aanmaken</button>
+        {mode !== 'forgot' && <label>Wachtwoord<input defaultValue="novademo2026" type="password" /></label>}
+        {mode === 'register' && <label>Bedrijfsnaam<input defaultValue="NOVA Demo BV" /></label>}
+        <button className="primary full" onClick={onLogin}>
+          <LogIn size={18} />
+          {mode === 'forgot' ? 'Herstellink simuleren' : 'Doorgaan'}
+        </button>
+        <div className="auth-links">
+          <button onClick={() => setMode('login')}>Inloggen</button>
+          <button onClick={() => setMode('register')}>Registreren</button>
+          <button onClick={() => setMode('forgot')}>Wachtwoord vergeten</button>
+        </div>
       </section>
     </div>
   )
@@ -402,7 +374,7 @@ function OnboardingScreen({ onComplete }: { onComplete: () => void }) {
           <h1>Richt je bedrijfsomgeving in</h1>
           <p>NOVA Office koppelt alle administratie aan een bedrijf, zodat het platform geschikt blijft voor meerdere gebruikers en administraties.</p>
           <div className="data-model">
-            {['Users', 'Companies', 'Subscriptions', 'Customers', 'Invoices', 'Transactions', 'Documents', 'LedgerAccounts', 'Tasks'].map((item) => (
+            {['Users', 'Companies', 'Memberships', 'Roles', 'Customers', 'Invoices', 'InvoiceItems', 'Quotes', 'QuoteItems'].map((item) => (
               <span key={item}>{item}</span>
             ))}
           </div>
@@ -411,7 +383,7 @@ function OnboardingScreen({ onComplete }: { onComplete: () => void }) {
           <label>Bedrijfsnaam<input defaultValue="NOVA Demo BV" /></label>
           <label>KvK-nummer<input defaultValue="87124490" /></label>
           <label>BTW-nummer<input defaultValue="NL862145901B01" /></label>
-          <label>Administratiepakket<select defaultValue="NOVA ZZP"><option>NOVA Start</option><option>NOVA ZZP</option><option>NOVA MKB</option><option>NOVA Enterprise</option></select></label>
+          <label>Startpakket<select defaultValue="NOVA Start"><option>NOVA Start</option><option>NOVA ZZP</option><option>NOVA MKB</option><option>NOVA Enterprise</option></select></label>
           <button type="button" className="primary" onClick={onComplete}>Dashboard openen <ArrowRight size={18} /></button>
         </form>
       </section>
@@ -419,19 +391,31 @@ function OnboardingScreen({ onComplete }: { onComplete: () => void }) {
   )
 }
 
-function Dashboard({ metrics, onNavigate }: { metrics: Record<string, number>; onNavigate: (screen: Screen) => void }) {
+function Dashboard({
+  metrics,
+  dashboardCustomers,
+  dashboardInvoices,
+  dashboardQuotes,
+  onNavigate,
+}: {
+  metrics: Record<string, number>
+  dashboardCustomers: Customer[]
+  dashboardInvoices: Invoice[]
+  dashboardQuotes: Quote[]
+  onNavigate: (screen: Screen) => void
+}) {
   return (
     <div className="content-grid">
       <section className="kpi-grid">
         <Metric label="Openstaande facturen" value={eur.format(metrics.open)} trend="+12%" />
-        <Metric label="Omzet deze maand" value={eur.format(metrics.revenue)} trend="+8%" />
-        <Metric label="Kosten deze maand" value={eur.format(metrics.costs)} trend="-3%" />
-        <Metric label="Winstindicatie" value={eur.format(metrics.profit)} trend="+14%" />
-        <Metric label="BTW te betalen" value={eur.format(metrics.vatDue)} trend="Q2" />
+        <Metric label="Actieve klanten" value={String(dashboardCustomers.length)} trend="tenant-safe" />
+        <Metric label="Offertes open" value={String(dashboardQuotes.filter((quote) => quote.status !== 'Geaccepteerd').length)} trend="workflow" />
+        <Metric label="Rollen ingericht" value={String(roles.length)} trend="RBAC" />
+        <Metric label="Bedrijven" value={String(companies.length)} trend="multi-tenant" />
       </section>
 
       <section className="panel wide">
-        <PanelHeader title="Financiele ontwikkeling" action="Bekijk rapportage" />
+        <PanelHeader title="MVP-activiteit" action="Bekijk facturen" onAction={() => onNavigate('invoices')} />
         <div className="chart">
           <ResponsiveContainer>
             <AreaChart data={monthlyData}>
@@ -451,28 +435,32 @@ function Dashboard({ metrics, onNavigate }: { metrics: Record<string, number>; o
         <div className="quick-actions">
           <button onClick={() => onNavigate('invoice-create')}><FilePlus2 size={18} /> Factuur maken</button>
           <button onClick={() => onNavigate('quotes')}><FileCheck2 size={18} /> Offerte maken</button>
-          <button onClick={() => onNavigate('documents')}><Upload size={18} /> Bon uploaden</button>
+          <button onClick={() => onNavigate('companies')}><Building2 size={18} /> Bedrijf wisselen</button>
           <button onClick={() => onNavigate('customers')}><Users size={18} /> Klant toevoegen</button>
         </div>
       </section>
 
       <section className="panel">
-        <PanelHeader title="Taken/to-do's" />
-        <TaskList compact />
+        <PanelHeader title="Fundering status" />
+        <div className="suggestions">
+          <span><Check size={16} /> Authenticatieflows aanwezig</span>
+          <span><Check size={16} /> Data gefilterd per company_id</span>
+          <span><Check size={16} /> Rollenmodel voorbereid</span>
+        </div>
       </section>
 
       <section className="panel wide">
-        <PanelHeader title="Laatste transacties" action="Transactie verwerken" />
+        <PanelHeader title="Recente facturen" action="Nieuwe factuur" onAction={() => onNavigate('invoice-create')} />
         <DataTable
-          columns={['Datum', 'Omschrijving', 'Categorie', 'Bedrag', 'Status']}
-          rows={transactions.map((trx) => [trx.date, trx.description, trx.category, eur.format(trx.amount), <Status key={trx.id} label={trx.status} />])}
+          columns={['Factuur', 'Klant', 'Vervaldatum', 'Bedrag', 'Status']}
+          rows={dashboardInvoices.slice(0, 4).map((invoice) => [invoice.number, nameFor(invoice.customerId), invoice.due, eur.format(invoice.amount), <Status key={invoice.id} label={invoice.status} />])}
         />
       </section>
     </div>
   )
 }
 
-function Customers({ onSelect }: { onSelect: (id: string) => void }) {
+function Customers({ customers, onSelect }: { customers: Customer[]; onSelect: (id: string) => void }) {
   return (
     <section className="panel">
       <PanelHeader title="Klantenoverzicht" action="Klant toevoegen" />
@@ -520,7 +508,7 @@ function CustomerDetail({ customer, onBack }: { customer: Customer; onBack: () =
   )
 }
 
-function Invoices({ onCreate }: { onCreate: () => void }) {
+function Invoices({ invoices, onCreate }: { invoices: Invoice[]; onCreate: () => void }) {
   return (
     <section className="panel">
       <PanelHeader title="Factuuroverzicht" action="Nieuwe factuur" onAction={onCreate} />
@@ -563,13 +551,6 @@ function InvoiceCreate({ rows, total, onRowsChange, onBack }: { rows: InvoiceRow
           <label>Betalingstermijn<select defaultValue="14 dagen"><option>7 dagen</option><option>14 dagen</option><option>30 dagen</option></select></label>
           <label>Status<select defaultValue="Concept"><option>Concept</option><option>Verzonden</option><option>Betaald</option></select></label>
         </div>
-        <div className="ai-check">
-          <Sparkles size={17} />
-          <div>
-            <strong>AI-check actief</strong>
-            <span>NOVA controleert BTW, verplichte velden en betaaltermijn voordat je verzendt.</span>
-          </div>
-        </div>
         <div className="line-header">
           <span>Omschrijving</span>
           <span>Aantal</span>
@@ -592,7 +573,6 @@ function InvoiceCreate({ rows, total, onRowsChange, onBack }: { rows: InvoiceRow
         </div>
         <div className="invoice-actions">
           <button className="ghost" onClick={addRow}><Plus size={17} /> Regel toevoegen</button>
-          <button className="ghost"><Bot size={17} /> Regels laten aanvullen</button>
         </div>
       </section>
       <aside className="panel preview">
@@ -622,7 +602,7 @@ function InvoiceCreate({ rows, total, onRowsChange, onBack }: { rows: InvoiceRow
   )
 }
 
-function Quotes() {
+function Quotes({ quotes }: { quotes: Quote[] }) {
   return (
     <section className="panel">
       <PanelHeader title="Offerte overzicht" action="Nieuwe offerte" />
@@ -634,176 +614,94 @@ function Quotes() {
   )
 }
 
-function Products() {
-  return <SimpleTable title="Producten en diensten" action="Product toevoegen" columns={['Naam', 'Type', 'Prijs', 'BTW', 'Grootboek']} rows={products.map((item) => [item.name, item.type, eur.format(item.price), item.vat, item.ledger])} />
+function Companies({ activeCompanyId, onSelect }: { activeCompanyId: string; onSelect: (companyId: string) => void }) {
+  return (
+    <section className="panel">
+      <PanelHeader title="Bedrijven en administraties" action="Bedrijf toevoegen" />
+      <DataTable
+        columns={['Bedrijf', 'Rol', 'Pakket', 'Tenant key', 'Status']}
+        rows={companies.map((company) => [
+          company.name,
+          company.role,
+          company.plan,
+          company.id,
+          <button key={company.id} className="table-link" onClick={() => onSelect(company.id)}>
+            {company.id === activeCompanyId ? 'Actief' : 'Activeren'}
+          </button>,
+        ])}
+      />
+    </section>
+  )
 }
 
-function Accounting() {
+function Roles() {
   return (
     <div className="content-grid">
-      <section className="kpi-grid">
-        <Metric label="Inkomsten" value={eur.format(15960)} />
-        <Metric label="Uitgaven" value={eur.format(6080)} />
-        <Metric label="Winst/verlies" value={eur.format(9880)} />
-        <Metric label="Balans totaal" value={eur.format(38420)} />
+      <section className="panel wide">
+        <PanelHeader title="Rollen en rechten" action="Rol toevoegen" />
+        <DataTable columns={['Rol', 'Toegang']} rows={roles.map((role) => [role.name, role.access])} />
       </section>
-      <SimpleTable title="Grootboekrekeningen" columns={['Code', 'Naam', 'Type', 'Saldo']} rows={ledgerAccounts.map((account) => [account.code, account.name, account.type, eur.format(account.balance)])} />
+      <SettingsBlock icon={<ShieldCheck />} title="RBAC-principe" text="Elke actie wordt straks gecontroleerd op user_id, company_id en rol." />
+      <SettingsBlock icon={<Users />} title="Teamstructuur" text="Een gebruiker kan meerdere bedrijven beheren met per bedrijf een andere rol." />
+    </div>
+  )
+}
+
+function DatabaseFoundation() {
+  return (
+    <div className="content-grid">
+      <section className="panel wide">
+        <PanelHeader title="Databasefundering" />
+        <DataTable
+          columns={['Tabel', 'Velden']}
+          rows={Object.entries(foundationSchema).map(([table, fields]) => [
+            table,
+            fields.join(', '),
+          ])}
+        />
+      </section>
       <section className="panel">
-        <PanelHeader title="Automatische boekingsvoorstellen" />
+        <PanelHeader title="Tenant-scope" />
+        <div className="data-model">
+          {tenantScopedTables.map((table) => <span key={table}>{table}</span>)}
+        </div>
+      </section>
+      <section className="panel">
+        <PanelHeader title="Databaseregels" />
         <div className="suggestions">
-          <span><Check size={16} /> Google Workspace naar Software</span>
-          <span><Check size={16} /> Lunch klantmeeting naar Representatie</span>
-          <span><Check size={16} /> Betaling koppelen aan factuur 2026-0141</span>
+          {foundationRules.map((rule) => <span key={rule}><Check size={16} /> {rule}</span>)}
         </div>
       </section>
     </div>
   )
 }
 
-function Bank() {
-  return (
-    <section className="panel">
-      <PanelHeader title="Banktransacties" action="CSV importeren" />
-      <div className="filters"><span>Gematcht</span><span>Niet gematcht</span><span>Datum</span><span>Bedrag</span></div>
-      <DataTable columns={['Datum', 'Omschrijving', 'Categorie', 'Bedrag', 'Status', 'Actie']} rows={transactions.map((trx) => [trx.date, trx.description, trx.category, eur.format(trx.amount), <Status key={trx.id} label={trx.status} />, 'Transactie verwerken'])} />
-    </section>
-  )
-}
-
-function Documents() {
-  return <SimpleTable title="Bonnen en documenten" action="Bon uploaden" columns={['Leverancier', 'Datum', 'Bedrag', 'BTW', 'Categorie', 'Status']} rows={documents.map((doc) => [doc.supplier, doc.date, eur.format(doc.amount), eur.format(doc.vat), doc.category, <Status key={doc.supplier} label={doc.status} />])} />
-}
-
-function Vat() {
-  const vatData = [
-    { name: 'BTW ontvangen', value: 4956, color: '#1877f2' },
-    { name: 'BTW betaald', value: 2170, color: '#13a36f' },
-    { name: 'BTW te betalen', value: 2786, color: '#f59e0b' },
-  ]
-  return (
-    <div className="content-grid">
-      <section className="kpi-grid">
-        {vatData.map((item) => <Metric key={item.name} label={item.name} value={eur.format(item.value)} />)}
-      </section>
-      <section className="panel">
-        <PanelHeader title="BTW-dashboard Q2" action="Basisrapport exporteren" />
-        <div className="chart small">
-          <ResponsiveContainer>
-            <PieChart>
-              <Pie data={vatData} innerRadius={58} outerRadius={86} dataKey="value">
-                {vatData.map((entry) => <Cell key={entry.name} fill={entry.color} />)}
-              </Pie>
-              <Tooltip formatter={(value) => eur.format(Number(value))} />
-            </PieChart>
-          </ResponsiveContainer>
-        </div>
-      </section>
-    </div>
-  )
-}
-
-function Reports() {
+function DesignSystem() {
   return (
     <div className="content-grid">
       <section className="panel wide">
-        <PanelHeader title="Rapportages" action="Bekijk rapportage" />
-        <div className="chart">
-          <ResponsiveContainer>
-            <BarChart data={monthlyData}>
-              <CartesianGrid strokeDasharray="3 3" vertical={false} />
-              <XAxis dataKey="month" />
-              <YAxis />
-              <Tooltip formatter={(value) => eur.format(Number(value))} />
-              <Bar dataKey="omzet" fill="#1877f2" radius={[4, 4, 0, 0]} />
-              <Bar dataKey="kosten" fill="#f59e0b" radius={[4, 4, 0, 0]} />
-            </BarChart>
-          </ResponsiveContainer>
+        <PanelHeader title="Design-system basis" action="Component toevoegen" />
+        <div className="design-grid">
+          <div><span>Kleur</span><strong>Zakelijk blauw</strong><em className="swatch blue"></em></div>
+          <div><span>Succes</span><strong>Groen</strong><em className="swatch green"></em></div>
+          <div><span>Waarschuwing</span><strong>Amber</strong><em className="swatch amber"></em></div>
+          <div><span>Radius</span><strong>8px max</strong><em className="radius-sample"></em></div>
         </div>
       </section>
-      {['Omzet per maand', 'Kosten per maand', 'Winst/verlies', 'Openstaande facturen', 'Klantwaarde', 'BTW overzicht'].map((report) => (
-        <section className="report-tile" key={report}><BarChart3 size={22} /><strong>{report}</strong><span>Gereed voor export en verdieping.</span></section>
-      ))}
-    </div>
-  )
-}
-
-function Tasks() {
-  return (
-    <section className="panel">
-      <PanelHeader title="Taken" action="Handmatige taak toevoegen" />
-      <TaskList />
-    </section>
-  )
-}
-
-function AiAssistant({ onNavigate }: { onNavigate: (screen: Screen) => void }) {
-  const automations = [
-    {
-      title: '3 banktransacties kunnen automatisch gekoppeld worden',
-      text: 'NOVA herkent bedragen, omschrijvingen en openstaande facturen en stelt directe matches voor.',
-      action: 'Bank openen',
-      target: 'bank' as Screen,
-    },
-    {
-      title: 'BTW Q2 lijkt compleet, maar mist 1 bon',
-      text: 'Controleer de Google Workspace bon voordat de aangifte wordt voorbereid.',
-      action: 'Bonnen openen',
-      target: 'documents' as Screen,
-    },
-    {
-      title: 'Factuur 2026-0140 verdient opvolging',
-      text: 'De betalingstermijn is verlopen. NOVA kan een vriendelijke herinnering voorbereiden.',
-      action: 'Facturen openen',
-      target: 'invoices' as Screen,
-    },
-  ]
-
-  return (
-    <div className="ai-layout">
-      <section className="panel ai-hero">
-        <div>
-          <p className="eyebrow">AI-first administratie</p>
-          <h2>Laat NOVA het uitzoekwerk doen</h2>
-          <p>
-            De assistent combineert facturen, bankregels, bonnen, BTW en taken tot concrete voorstellen die je met minimale klikken kunt verwerken.
-          </p>
-        </div>
-        <div className="ai-command">
-          <Bot size={22} />
-          <input defaultValue="Welke administratiepunten vragen vandaag aandacht?" />
-          <button className="primary">Vraag NOVA</button>
-        </div>
-      </section>
-
-      <section className="panel wide">
-        <PanelHeader title="Slimme voorstellen" />
-        <div className="automation-grid">
-          {automations.map((item) => (
-            <article className="automation-card" key={item.title}>
-              <div className="automation-icon"><Sparkles size={18} /></div>
-              <h3>{item.title}</h3>
-              <p>{item.text}</p>
-              <button className="table-link" onClick={() => onNavigate(item.target)}>{item.action}</button>
-            </article>
-          ))}
-        </div>
-      </section>
-
       <section className="panel">
-        <PanelHeader title="AI-boekingswachtrij" action="Alles beoordelen" />
-        <div className="ai-queue">
-          <span><strong>Google Workspace</strong><small>Voorstel: Software, 21% BTW, confidence 94%</small></span>
-          <span><strong>Lunch klantmeeting</strong><small>Voorstel: Representatie, BTW beperkt aftrekbaar, confidence 88%</small></span>
-          <span><strong>Betaling Rijnhaven</strong><small>Voorstel: Match met factuur 2026-0141, confidence 99%</small></span>
+        <PanelHeader title="Knoppen" />
+        <div className="component-row">
+          <button className="primary">Primaire actie</button>
+          <button className="ghost">Secundair</button>
+          <button className="icon-button" aria-label="Zoeken"><Search size={18} /></button>
         </div>
       </section>
-
       <section className="panel">
-        <PanelHeader title="Vandaag aanbevolen" />
-        <div className="recommendation-list">
-          <button onClick={() => onNavigate('vat')}><BadgeEuro size={17} /> BTW-rapport voorbereiden</button>
-          <button onClick={() => onNavigate('reports')}><BarChart3 size={17} /> Managementsamenvatting maken</button>
-          <button onClick={() => onNavigate('tasks')}><ClipboardCheck size={17} /> Open taken prioriteren</button>
+        <PanelHeader title="Statuslabels" />
+        <div className="component-row">
+          <Status label="Concept" />
+          <Status label="Verzonden" />
+          <Status label="Betaald" />
         </div>
       </section>
     </div>
@@ -818,23 +716,6 @@ function SettingsPage() {
       <SettingsBlock icon={<WalletCards />} title="Factuurinstellingen" text="Automatische nummers, betalingstermijnen en BTW-standaarden." />
       <SettingsBlock icon={<BriefcaseBusiness />} title="Administraties" text="Data blijft gekoppeld aan company_id voor multi-tenant SaaS." />
     </div>
-  )
-}
-
-function Subscription() {
-  return (
-    <section className="panel">
-      <PanelHeader title="Abonnement en pakketbeheer" />
-      <div className="plans">
-        {plans.map(([name, text]) => (
-          <article className={name === 'NOVA ZZP' ? 'plan active-plan' : 'plan'} key={name}>
-            <h2>{name}</h2>
-            <p>{text}</p>
-            <button className={name === 'NOVA ZZP' ? 'primary full' : 'ghost full'}>{name === 'NOVA ZZP' ? 'Huidig pakket' : 'Pakket bekijken'}</button>
-          </article>
-        ))}
-      </div>
-    </section>
   )
 }
 
@@ -855,10 +736,6 @@ function PanelHeader({ title, action, onAction }: { title: string; action?: stri
   return <div className="panel-header"><h2>{title}</h2>{action && <button className="primary" onClick={onAction}>{action}</button>}</div>
 }
 
-function SimpleTable({ title, action, columns, rows }: { title: string; action?: string; columns: string[]; rows: ReactNode[][] }) {
-  return <section className="panel"><PanelHeader title={title} action={action} /><DataTable columns={columns} rows={rows} /></section>
-}
-
 function DataTable({ columns, rows }: { columns: string[]; rows: ReactNode[][] }) {
   return (
     <div className="table-wrap">
@@ -872,10 +749,6 @@ function DataTable({ columns, rows }: { columns: string[]; rows: ReactNode[][] }
 
 function Status({ label }: { label: string }) {
   return <span className={`status ${label.toLowerCase().replaceAll(' ', '-')}`}>{label}</span>
-}
-
-function TaskList({ compact = false }: { compact?: boolean }) {
-  return <div className="task-list">{tasks.slice(0, compact ? 4 : tasks.length).map((task) => <div className={task.done ? 'task done' : 'task'} key={task.id}><span>{task.done && <Check size={13} />}</span><div><strong>{task.title}</strong><small>{task.type} · {task.due}</small></div></div>)}</div>
 }
 
 function SettingsBlock({ icon, title, text }: { icon: ReactNode; title: string; text: string }) {
@@ -906,6 +779,10 @@ function titleFor(screen: Screen) {
     invoices: 'Facturen',
     'invoice-create': 'Factuur aanmaken',
     quotes: 'Offertes',
+    companies: 'Bedrijven',
+    roles: 'Rollen en rechten',
+    database: 'Database',
+    'design-system': 'Design system',
     products: 'Producten en diensten',
     accounting: 'Boekhouding',
     bank: 'Banktransacties',

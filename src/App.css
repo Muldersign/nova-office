@@ -165,6 +165,21 @@ button {
   margin-bottom: 16px;
 }
 
+.auth-links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  margin-top: 14px;
+}
+
+.auth-links button {
+  border: 0;
+  background: transparent;
+  color: var(--blue);
+  font-weight: 800;
+  padding: 0;
+}
+
 input,
 select {
   min-height: 44px;
@@ -259,7 +274,7 @@ select {
 
 .company-switch {
   display: grid;
-  grid-template-columns: auto 1fr auto;
+  grid-template-columns: auto 1fr;
   gap: 10px;
   align-items: center;
   margin: 24px 0;
@@ -267,6 +282,14 @@ select {
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
   background: rgba(255, 255, 255, 0.05);
+}
+
+.company-switch select {
+  grid-column: 1 / -1;
+  min-height: 36px;
+  border-color: rgba(255, 255, 255, 0.14);
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
 }
 
 .company-switch span {
@@ -857,6 +880,59 @@ th {
   font-weight: 800;
 }
 
+.design-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 14px;
+}
+
+.design-grid div {
+  min-height: 120px;
+  display: grid;
+  gap: 8px;
+  align-content: start;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.design-grid span {
+  color: var(--muted);
+  font-size: 13px;
+}
+
+.swatch,
+.radius-sample {
+  width: 44px;
+  height: 28px;
+  border-radius: 8px;
+}
+
+.swatch.blue {
+  background: var(--blue);
+}
+
+.swatch.green {
+  background: var(--green);
+}
+
+.swatch.amber {
+  background: var(--amber);
+}
+
+.radius-sample {
+  border: 1px solid var(--line);
+  background: var(--soft);
+}
+
+.component-row {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  align-items: center;
+}
+
 .plans {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
@@ -911,7 +987,8 @@ th {
 
   .ai-layout,
   .ai-hero,
-  .automation-grid {
+  .automation-grid,
+  .design-grid {
     grid-template-columns: 1fr;
   }
 

@@ -1,47 +1,30 @@
 # NOVA Office
 
-NOVA Office is een moderne SaaS-webapp voor ondernemers. Het platform brengt boekhouding, facturen, offertes, klanten, banktransacties, bonnen, BTW, rapportages, taken en pakketbeheer samen in een centrale omgeving.
+NOVA Office is een moderne SaaS-webapp voor ondernemers. De eerste ontwikkelfase richt zich uitsluitend op de schaalbare fundering: authenticatie, multi-tenant bedrijvenbeheer, dashboard, klanten, facturen, offertes, databasecontract, rollen en design-system.
 
 De eerste versie is een werkende MVP met demo-data, gericht op structuur, snelheid, heldere navigatie en een premium zakelijke gebruikerservaring.
 
-## Productrichting
+## Fase 1: MVP-fundering
 
-NOVA Office wordt AI-first ontwikkeld. Iedere module moet op termijn handmatige administratie verminderen door slimme suggesties, automatische herkenning en contextuele acties.
+Deze fase bouwt nog geen boekhouding, bankkoppelingen of AI-processen. Die modules komen pas nadat de fundering stabiel is.
 
-Belangrijke AI-kansen:
+Scope:
 
-- Automatisch boeken van inkomsten en uitgaven
-- Bonnen en inkoopfacturen herkennen
-- Banktransacties koppelen aan facturen
-- BTW-aangifte voorbereiden
-- Waarschuwingen bij verlopen facturen of ontbrekende bonnen
-- Rapportages genereren in begrijpelijke taal
-- Slim zoeken door de volledige administratie
-- AI-chat binnen NOVA Office voor vragen en acties
-
-## MVP-modules
-
-- Login en registratie-entry
-- Onboarding voor bedrijfsgegevens
-- Dashboard met KPI's, grafieken, taken en transacties
+- Registreren, inloggen en wachtwoord vergeten
+- Multi-tenant architectuur waarin een gebruiker meerdere bedrijven kan beheren
+- Dashboard voor de actieve tenant
 - Klantenoverzicht en klantdetail
 - Factuuroverzicht en factuur aanmaken
 - Offerteoverzicht
-- Producten en diensten
-- Boekhouding met grootboek en boekingsvoorstellen
-- Banktransacties met matchstatus
-- Bonnen en documenten
-- BTW-dashboard
-- Rapportages
-- Taken
-- Instellingen
-- Abonnement en pakketbeheer
+- Databasecontract voor de fundering
+- Rollen- en rechtenstructuur
+- Design-system/componentenbasis
 
 ## Module-notities
 
 ### Facturen
 
-De factuurmodule ondersteunt een eerste professionele aanmaakflow met klantkeuze, automatisch factuurnummer, factuurdatum, vervaldatum, betalingstermijn, status, factuurregels, BTW-keuze, subtotalen en PDF-preview. De flow bevat ook een AI-check voor verplichte velden, BTW en betaaltermijn.
+De factuurmodule ondersteunt een eerste professionele aanmaakflow met klantkeuze, automatisch factuurnummer, factuurdatum, vervaldatum, betalingstermijn, status, factuurregels, BTW-keuze, subtotalen en PDF-preview.
 
 Volgende uitbreidingen:
 
@@ -49,29 +32,24 @@ Volgende uitbreidingen:
 - PDF genereren
 - Betaling registreren
 - Herinneringen automatisch voorbereiden
-- AI-voorstel voor factuurregels op basis van klant, offerte of uren
+- Factuurregels voorstellen op basis van klant, offerte of uren zodra AI in een latere fase wordt geactiveerd
 
 ## SaaS-architectuur
 
 De app is voorbereid op multi-tenant gebruik. Alle demo-entiteiten bevatten een `companyId`, zodat iedere administratie gekoppeld kan worden aan een bedrijf.
 
-Kernentiteiten:
+Fase-1 kernentiteiten:
 
 - Users
 - Companies
-- Subscriptions
+- CompanyMemberships
+- Roles
 - Customers
 - Invoices
 - InvoiceItems
 - Quotes
 - QuoteItems
-- Products
-- Transactions
-- Expenses
-- Documents
-- LedgerAccounts
-- Tasks
-- Reports/settings
+- AuditEvents
 
 ## Ontwikkelmethode
 
