@@ -1,4 +1,4 @@
-import { type ReactNode, useMemo, useState } from 'react'
+import { type ReactNode, useEffect, useMemo, useState } from 'react'
 import {
   Area,
   AreaChart,
@@ -104,6 +104,15 @@ type Quote = {
   status: QuoteStatus
   validUntil: string
   items: InvoiceRow[]
+}
+
+type AuditEvent = {
+  id: string
+  companyId: string
+  action: string
+  entityType: 'customer' | 'invoice' | 'quote' | 'company' | 'settings'
+  entityId: string
+  createdAt: string
 }
 
 type InvoiceRow = {
@@ -299,6 +308,33 @@ const quotes: Quote[] = [
   },
 ]
 
+const auditEvents: AuditEvent[] = [
+  {
+    id: 'evt_01',
+    companyId,
+    action: 'Factuur 2026-0142 verzonden naar Studio Veldkamp',
+    entityType: 'invoice',
+    entityId: 'inv_01',
+    createdAt: '2026-07-02T09:12:00.000Z',
+  },
+  {
+    id: 'evt_02',
+    companyId,
+    action: 'Offerte OFF-2026-054 geaccepteerd',
+    entityType: 'quote',
+    entityId: 'quo_02',
+    createdAt: '2026-07-02T10:31:00.000Z',
+  },
+  {
+    id: 'evt_03',
+    companyId: 'comp_orbit_studio',
+    action: 'Factuur 2026-0031 verzonden naar Helder Merkadvies',
+    entityType: 'invoice',
+    entityId: 'inv_05',
+    createdAt: '2026-07-02T11:05:00.000Z',
+  },
+]
+
 const monthlyData = [
   { month: 'Jan', omzet: 18400, kosten: 9200, winst: 9200 },
   { month: 'Feb', omzet: 21300, kosten: 9800, winst: 11500 },
@@ -327,9 +363,56 @@ const sessionKeys = {
   onboarded: 'nova.onboarded',
   activeCompanyId: 'nova.activeCompanyId',
 } as const
+const workspaceVersion = '2026-07-03-1'
+const workspaceKeys = {
+  version: 'nova.workspace.version',
+  customers: 'nova.workspace.customers',
+  invoices: 'nova.workspace.invoices',
+  quotes: 'nova.workspace.quotes',
+  auditEvents: 'nova.workspace.auditEvents',
+} as const
 
 function readSessionFlag(key: string) {
   return typeof window !== 'undefined' && window.localStorage.getItem(key) === 'true'
+}
+
+function readWorkspaceRecords<T>(key: string, fallback: T[]) {
+  if (typeof window === 'undefined') {
+    return fallback
+  }
+
+  if (window.localStorage.getItem(workspaceKeys.version) !== workspaceVersion) {
+    return fallback
+  }
+
+  const raw = window.localStorage.getItem(key)
+  if (!raw) {
+    return fallback
+  }
+
+  try {
+    const parsed = JSON.parse(raw) as T[]
+    return Array.isArray(parsed) ? parsed : fallback
+  } catch {
+    return fallback
+  }
+}
+
+function writeWorkspaceRecords<T>(key: string, records: T[]) {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  window.localStorage.setItem(workspaceKeys.version, workspaceVersion)
+  window.localStorage.setItem(key, JSON.stringify(records))
+}
+
+function resetWorkspaceStorage() {
+  if (typeof window === 'undefined') {
+    return
+  }
+
+  Object.values(workspaceKeys).forEach((key) => window.localStorage.removeItem(key))
 }
 
 function readActiveCompanyId() {
@@ -350,9 +433,10 @@ function App() {
     return readSessionFlag(sessionKeys.onboarded) ? 'dashboard' : 'onboarding'
   })
   const [activeCompanyId, setActiveCompanyIdState] = useState(readActiveCompanyId)
-  const [customerRecords, setCustomerRecords] = useState<Customer[]>(customers)
-  const [invoiceRecords, setInvoiceRecords] = useState<Invoice[]>(invoices)
-  const [quoteRecords, setQuoteRecords] = useState<Quote[]>(quotes)
+  const [customerRecords, setCustomerRecords] = useState<Customer[]>(() => readWorkspaceRecords(workspaceKeys.customers, customers))
+  const [invoiceRecords, setInvoiceRecords] = useState<Invoice[]>(() => readWorkspaceRecords(workspaceKeys.invoices, invoices))
+  const [quoteRecords, setQuoteRecords] = useState<Quote[]>(() => readWorkspaceRecords(workspaceKeys.quotes, quotes))
+  const [auditRecords, setAuditRecords] = useState<AuditEvent[]>(() => readWorkspaceRecords(workspaceKeys.auditEvents, auditEvents))
   const [selectedCustomer, setSelectedCustomer] = useState(customers[0].id)
   const [selectedInvoice, setSelectedInvoice] = useState(invoices[0].id)
   const [selectedQuote, setSelectedQuote] = useState(quotes[0].id)
@@ -382,6 +466,7 @@ function App() {
   const companyCustomers = customerRecords.filter((customer) => customer.companyId === activeCompanyId)
   const companyInvoices = invoiceRecords.filter((invoice) => invoice.companyId === activeCompanyId)
   const companyQuotes = quoteRecords.filter((quote) => quote.companyId === activeCompanyId)
+  const companyAuditEvents = auditRecords.filter((event) => event.companyId === activeCompanyId)
   const activeCompany = companies.find((company) => company.id === activeCompanyId) ?? companies[0]
   const currentCustomer = companyCustomers.find((customer) => customer.id === selectedCustomer) ?? companyCustomers[0] ?? customers[0]
   const currentInvoice = companyInvoices.find((invoice) => invoice.id === selectedInvoice) ?? companyInvoices[0]
@@ -389,6 +474,22 @@ function App() {
   const invoiceTotal = invoiceRows.reduce((sum, row) => sum + row.quantity * row.price * (1 + row.vat / 100), 0)
   const nextInvoiceNumber = nextDocumentNumber(companyInvoices.map((invoice) => invoice.number), '2026')
   const nextQuoteNumber = nextDocumentNumber(companyQuotes.map((quote) => quote.number), 'OFF-2026', 3)
+
+  useEffect(() => {
+    writeWorkspaceRecords(workspaceKeys.customers, customerRecords)
+  }, [customerRecords])
+
+  useEffect(() => {
+    writeWorkspaceRecords(workspaceKeys.invoices, invoiceRecords)
+  }, [invoiceRecords])
+
+  useEffect(() => {
+    writeWorkspaceRecords(workspaceKeys.quotes, quoteRecords)
+  }, [quoteRecords])
+
+  useEffect(() => {
+    writeWorkspaceRecords(workspaceKeys.auditEvents, auditRecords)
+  }, [auditRecords])
 
   const setActiveCompanyId = (nextCompanyId: string) => {
     setActiveCompanyIdState(nextCompanyId)
@@ -424,11 +525,26 @@ function App() {
     setMenuOpen(false)
   }
 
+  const appendAudit = (companyId: string, action: string, entityType: AuditEvent['entityType'], entityId: string) => {
+    setAuditRecords((records) => [
+      {
+        id: `evt_${Date.now()}`,
+        companyId,
+        action,
+        entityType,
+        entityId,
+        createdAt: new Date().toISOString(),
+      },
+      ...records,
+    ])
+  }
+
   const saveCustomer = (customer: Customer) => {
+    const exists = customerRecords.some((record) => record.id === customer.id)
     setCustomerRecords((records) => {
-      const exists = records.some((record) => record.id === customer.id)
       return exists ? records.map((record) => (record.id === customer.id ? customer : record)) : [customer, ...records]
     })
+    appendAudit(customer.companyId, `${exists ? 'Klant bijgewerkt' : 'Klant toegevoegd'}: ${customer.name}`, 'customer', customer.id)
     setSelectedCustomer(customer.id)
     setEditingCustomerId(null)
     navigate('customer-detail')
@@ -436,18 +552,24 @@ function App() {
 
   const saveInvoice = (invoice: Invoice) => {
     setInvoiceRecords((records) => [invoice, ...records])
+    appendAudit(invoice.companyId, `Factuur ${invoice.number} aangemaakt voor ${nameFor(invoice.customerId, customerRecords)}`, 'invoice', invoice.id)
     setSelectedInvoice(invoice.id)
     navigate('invoice-detail')
   }
 
   const saveQuote = (quote: Quote) => {
     setQuoteRecords((records) => [quote, ...records])
+    appendAudit(quote.companyId, `Offerte ${quote.number} aangemaakt voor ${nameFor(quote.customerId, customerRecords)}`, 'quote', quote.id)
     setSelectedQuote(quote.id)
     navigate('quote-detail')
   }
 
   const updateInvoiceStatus = (invoiceId: string, status: InvoiceStatus) => {
-    setInvoiceRecords((records) => records.map((invoice) => (invoice.id === invoiceId ? { ...invoice, status } : invoice)))
+    const invoice = invoiceRecords.find((record) => record.id === invoiceId)
+    setInvoiceRecords((records) => records.map((record) => (record.id === invoiceId ? { ...record, status } : record)))
+    if (invoice) {
+      appendAudit(invoice.companyId, `Factuur ${invoice.number} gemarkeerd als ${status.toLowerCase()}`, 'invoice', invoice.id)
+    }
   }
 
   const convertQuoteToInvoice = (quote: Quote) => {
@@ -464,7 +586,34 @@ function App() {
       items: quote.items,
     }
     setQuoteRecords((records) => records.map((record) => (record.id === quote.id ? { ...record, status: 'Geaccepteerd' } : record)))
+    appendAudit(quote.companyId, `Offerte ${quote.number} omgezet naar factuur ${invoice.number}`, 'quote', quote.id)
     saveInvoice(invoice)
+  }
+
+  const resetWorkspace = () => {
+    resetWorkspaceStorage()
+    setCustomerRecords(customers)
+    setInvoiceRecords(invoices)
+    setQuoteRecords(quotes)
+    setAuditRecords(auditEvents)
+    setSelectedCustomer(customers[0].id)
+    setSelectedInvoice(invoices[0].id)
+    setSelectedQuote(quotes[0].id)
+    navigate('dashboard')
+  }
+
+  const exportWorkspace = () => {
+    const payload = {
+      exportedAt: new Date().toISOString(),
+      activeCompanyId,
+      customers: customerRecords,
+      invoices: invoiceRecords,
+      quotes: quoteRecords,
+      auditEvents: auditRecords,
+    }
+
+    window.localStorage.setItem('nova.workspace.lastExport', JSON.stringify(payload))
+    appendAudit(activeCompanyId, 'Werkruimte-export voorbereid', 'settings', activeCompanyId)
   }
 
   return (
@@ -518,14 +667,23 @@ function App() {
         </header>
 
         <div className="module-tabs" aria-label="MVP modules">
-          {(['dashboard', 'customers', 'invoices', 'quotes'] as Screen[]).map((module) => (
+          {(['dashboard', 'customers', 'invoices', 'quotes', 'companies', 'settings'] as Screen[]).map((module) => (
             <button key={module} className={screen === module ? 'active' : ''} onClick={() => navigate(module)}>
               {titleFor(module)}
             </button>
           ))}
         </div>
 
-        {screen === 'dashboard' && <Dashboard metrics={metrics} dashboardCustomers={companyCustomers} dashboardInvoices={companyInvoices} dashboardQuotes={companyQuotes} onNavigate={navigate} />}
+        {screen === 'dashboard' && (
+          <Dashboard
+            metrics={metrics}
+            dashboardCustomers={companyCustomers}
+            dashboardInvoices={companyInvoices}
+            dashboardQuotes={companyQuotes}
+            auditEvents={companyAuditEvents}
+            onNavigate={navigate}
+          />
+        )}
         {screen === 'customers' && (
           <Customers
             customers={companyCustomers}
@@ -612,7 +770,14 @@ function App() {
         {screen === 'roles' && <Roles />}
         {screen === 'database' && <DatabaseFoundation />}
         {screen === 'design-system' && <DesignSystem />}
-        {screen === 'settings' && <SettingsPage />}
+        {screen === 'settings' && (
+          <SettingsPage
+            activeCompany={activeCompany}
+            auditEvents={companyAuditEvents}
+            onExport={exportWorkspace}
+            onReset={resetWorkspace}
+          />
+        )}
       </main>
     </div>
   )
@@ -698,12 +863,14 @@ function Dashboard({
   dashboardCustomers,
   dashboardInvoices,
   dashboardQuotes,
+  auditEvents,
   onNavigate,
 }: {
   metrics: Record<string, number>
   dashboardCustomers: Customer[]
   dashboardInvoices: Invoice[]
   dashboardQuotes: Quote[]
+  auditEvents: AuditEvent[]
   onNavigate: (screen: Screen) => void
 }) {
   return (
@@ -745,9 +912,10 @@ function Dashboard({
       <section className="panel">
         <PanelHeader title="Recente activiteit" />
         <div className="suggestions">
-          <span><Check size={16} /> Factuur 2026-0142 verzonden naar Studio Veldkamp</span>
-          <span><Check size={16} /> Offerte OFF-2026-054 geaccepteerd</span>
-          <span><Check size={16} /> Tenantfilter actief voor {dashboardCustomers.length} klanten</span>
+          {auditEvents.slice(0, 4).map((event) => (
+            <span key={event.id}><Check size={16} /> {event.action}</span>
+          ))}
+          {auditEvents.length === 0 && <span><Check size={16} /> Tenantfilter actief voor {dashboardCustomers.length} klanten</span>}
         </div>
       </section>
 
@@ -1350,13 +1518,42 @@ function DesignSystem() {
   )
 }
 
-function SettingsPage() {
+function SettingsPage({
+  activeCompany,
+  auditEvents,
+  onExport,
+  onReset,
+}: {
+  activeCompany: { id: string; name: string; role: string; plan: string }
+  auditEvents: AuditEvent[]
+  onExport: () => void
+  onReset: () => void
+}) {
   return (
     <div className="content-grid">
-      <SettingsBlock icon={<Building2 />} title="Bedrijfsgegevens" text="NOVA Demo BV, BTW NL862145901B01, KvK 87124490" />
+      <SettingsBlock icon={<Building2 />} title="Bedrijfsgegevens" text={`${activeCompany.name}, pakket ${activeCompany.plan}, tenant ${activeCompany.id}`} />
       <SettingsBlock icon={<ShieldCheck />} title="Gebruikers en rechten" text="Voorbereid op meerdere gebruikers, rollen en audit logs." />
       <SettingsBlock icon={<WalletCards />} title="Factuurinstellingen" text="Automatische nummers, betalingstermijnen en BTW-standaarden." />
-      <SettingsBlock icon={<BriefcaseBusiness />} title="Administraties" text="Data blijft gekoppeld aan company_id voor multi-tenant SaaS." />
+      <SettingsBlock icon={<BriefcaseBusiness />} title="Administraties" text="Data blijft gekoppeld aan company_id en wordt lokaal persistent opgeslagen." />
+      <section className="panel wide">
+        <PanelHeader title="Werkruimtebeheer" />
+        <div className="workspace-tools">
+          <button className="primary" onClick={onExport}>Export voorbereiden</button>
+          <button className="ghost" onClick={onReset}>Demo-data herstellen</button>
+        </div>
+        <p className="helper-text">Exports worden in deze MVP lokaal klaargezet. In de backendfase wordt dit een echte download/API-export.</p>
+      </section>
+      <section className="panel wide">
+        <PanelHeader title="Auditlog" />
+        <DataTable
+          columns={['Actie', 'Type', 'Tijd']}
+          rows={auditEvents.slice(0, 8).map((event) => [
+            event.action,
+            event.entityType,
+            new Date(event.createdAt).toLocaleString('nl-NL'),
+          ])}
+        />
+      </section>
     </div>
   )
 }

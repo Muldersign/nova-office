@@ -19,6 +19,7 @@ Scope:
 - Databasecontract voor de fundering
 - Rollen- en rechtenstructuur
 - Design-system/componentenbasis
+- Persistente MVP-werkruimte in de browser met auditlog, exportvoorbereiding en demo-reset
 
 ## Module-notities
 
@@ -37,6 +38,8 @@ Volgende uitbreidingen:
 ## SaaS-architectuur
 
 De app is voorbereid op multi-tenant gebruik. Alle demo-entiteiten bevatten een `companyId`, zodat iedere administratie gekoppeld kan worden aan een bedrijf.
+
+De huidige MVP bewaart klant-, factuur-, offerte- en auditdata persistent in de browser. Dit is bewust een tussenstap richting een echte backend: de UI en domeinregels gedragen zich al alsof er een werkruimte bestaat, terwijl de volgende fase de opslag verplaatst naar API + database.
 
 Fase-1 kernentiteiten:
 

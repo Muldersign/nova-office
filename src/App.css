@@ -957,6 +957,27 @@ th {
   align-items: center;
 }
 
+.workspace-tools {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.helper-text,
+.form-error {
+  margin: 10px 0 0;
+  color: var(--muted);
+}
+
+.form-error {
+  padding: 10px 12px;
+  border: 1px solid var(--red-soft);
+  border-radius: 7px;
+  background: var(--red-soft);
+  color: var(--red);
+  font-weight: 700;
+}
+
 .plans {
   display: grid;
   grid-template-columns: repeat(4, minmax(0, 1fr));
