@@ -92,14 +92,20 @@ npm run lint
 
 ## Deployment
 
-Deployment loopt via GitHub Actions naar GitHub Pages.
+Live development draait via GitHub Actions, GitHub Pages en Cloud86/Plesk Git.
 
 Na iedere push naar `main`:
 
 1. Dependencies worden geinstalleerd
 2. Linting draait
 3. De productiebuild wordt gemaakt
-4. De laatste versie wordt gepubliceerd als live preview
+4. De laatste versie wordt gepubliceerd naar de `gh-pages` branch
+5. Cloud86/Plesk haalt de `gh-pages` branch op en publiceert naar het subdomein
+
+Live omgevingen:
+
+- Cloud86 development: <https://nova-office.muldersign.nl>
+- GitHub Pages preview: <https://muldersign.github.io/nova-office/>
 
 ## Referentieonderzoek
 
