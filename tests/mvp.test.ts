@@ -1,0 +1,47 @@
+import assert from 'node:assert/strict'
+import { test } from 'node:test'
+import {
+  calculateTotals,
+  canManage,
+  filterByCompany,
+  nextDocumentNumber,
+  validateRequiredCustomer,
+} from '../src/foundation/business.ts'
+
+test('calculates subtotal, VAT and total for document lines', () => {
+  const totals = calculateTotals([
+    { description: 'Advies', quantity: 2, price: 100, vat: 21 },
+    { description: 'Training', quantity: 1, price: 50, vat: 9 },
+  ])
+
+  assert.equal(totals.subtotal, 250)
+  assert.equal(totals.vatTotal, 46.5)
+  assert.equal(totals.total, 296.5)
+})
+
+test('generates the next invoice and quote number per prefix', () => {
+  assert.equal(nextDocumentNumber(['2026-0141', '2026-0142'], '2026'), '2026-0143')
+  assert.equal(nextDocumentNumber(['OFF-2026-054', 'OFF-2026-055'], 'OFF-2026', 3), 'OFF-2026-056')
+})
+
+test('filters records by company_id for tenant isolation', () => {
+  const records = [
+    { id: 'a', companyId: 'comp_a' },
+    { id: 'b', companyId: 'comp_b' },
+    { id: 'c', companyId: 'comp_a' },
+  ]
+
+  assert.deepEqual(filterByCompany(records, 'comp_a').map((record) => record.id), ['a', 'c'])
+})
+
+test('applies basic role based access rules', () => {
+  assert.equal(canManage('Eigenaar', 'settings'), true)
+  assert.equal(canManage('Beheerder', 'settings'), false)
+  assert.equal(canManage('Financieel medewerker', 'invoices'), true)
+  assert.equal(canManage('Lezer', 'customers'), false)
+})
+
+test('validates required customer fields', () => {
+  assert.equal(validateRequiredCustomer({ name: 'NOVA BV', email: 'finance@nova.nl', city: 'Amsterdam' }), true)
+  assert.equal(validateRequiredCustomer({ name: '', email: 'finance-at-nova.nl', city: '' }), false)
+})

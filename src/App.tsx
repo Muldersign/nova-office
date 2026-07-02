@@ -31,6 +31,7 @@ import {
   WalletCards,
   X,
 } from 'lucide-react'
+import { calculateTotals, nextDocumentNumber, validateRequiredCustomer } from './foundation/business'
 import { foundationRules, foundationSchema, tenantScopedTables } from './foundation/database'
 import './App.css'
 
@@ -386,8 +387,8 @@ function App() {
   const currentInvoice = companyInvoices.find((invoice) => invoice.id === selectedInvoice) ?? companyInvoices[0]
   const currentQuote = companyQuotes.find((quote) => quote.id === selectedQuote) ?? companyQuotes[0]
   const invoiceTotal = invoiceRows.reduce((sum, row) => sum + row.quantity * row.price * (1 + row.vat / 100), 0)
-  const nextInvoiceNumber = nextNumber(companyInvoices.map((invoice) => invoice.number), '2026')
-  const nextQuoteNumber = nextNumber(companyQuotes.map((quote) => quote.number), 'OFF-2026')
+  const nextInvoiceNumber = nextDocumentNumber(companyInvoices.map((invoice) => invoice.number), '2026')
+  const nextQuoteNumber = nextDocumentNumber(companyQuotes.map((quote) => quote.number), 'OFF-2026', 3)
 
   const setActiveCompanyId = (nextCompanyId: string) => {
     setActiveCompanyIdState(nextCompanyId)
@@ -802,7 +803,7 @@ function CustomerForm({
 
   const update = (field: keyof Customer, value: string | number) => setForm((current) => ({ ...current, [field]: value }))
   const submit = () => {
-    if (!form.name.trim() || !form.email.includes('@') || !form.city.trim()) {
+    if (!validateRequiredCustomer(form)) {
       setError('Vul minimaal bedrijfsnaam, geldig e-mailadres en plaats in.')
       return
     }
@@ -1396,30 +1397,6 @@ function updateRow(
   value: string | number,
 ) {
   onRowsChange(rows.map((row, rowIndex) => (rowIndex === index ? { ...row, [field]: value } : row)))
-}
-
-function calculateTotals(rows: InvoiceRow[]) {
-  return rows.reduce(
-    (totals, row) => {
-      const subtotal = row.quantity * row.price
-      const vat = subtotal * (row.vat / 100)
-      return {
-        subtotal: totals.subtotal + subtotal,
-        vatTotal: totals.vatTotal + vat,
-        total: totals.total + subtotal + vat,
-      }
-    },
-    { subtotal: 0, vatTotal: 0, total: 0 },
-  )
-}
-
-function nextNumber(existingNumbers: string[], prefix: string) {
-  const next = existingNumbers.reduce((highest, number) => {
-    const current = Number(number.split('-').at(-1))
-    return Number.isFinite(current) && current > highest ? current : highest
-  }, 0) + 1
-
-  return `${prefix}-${String(next).padStart(4, '0')}`
 }
 
 function todayIso() {
