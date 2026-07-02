@@ -206,10 +206,34 @@ const navItems = [
 ] as const
 
 const eur = new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR' })
+const sessionKeys = {
+  authenticated: 'nova.authenticated',
+  onboarded: 'nova.onboarded',
+  activeCompanyId: 'nova.activeCompanyId',
+} as const
+
+function readSessionFlag(key: string) {
+  return typeof window !== 'undefined' && window.localStorage.getItem(key) === 'true'
+}
+
+function readActiveCompanyId() {
+  if (typeof window === 'undefined') {
+    return companyId
+  }
+
+  const storedCompanyId = window.localStorage.getItem(sessionKeys.activeCompanyId)
+  return companies.some((company) => company.id === storedCompanyId) ? storedCompanyId ?? companyId : companyId
+}
 
 function App() {
-  const [screen, setScreen] = useState<Screen>('login')
-  const [activeCompanyId, setActiveCompanyId] = useState(companyId)
+  const [screen, setScreen] = useState<Screen>(() => {
+    if (!readSessionFlag(sessionKeys.authenticated)) {
+      return 'login'
+    }
+
+    return readSessionFlag(sessionKeys.onboarded) ? 'dashboard' : 'onboarding'
+  })
+  const [activeCompanyId, setActiveCompanyIdState] = useState(readActiveCompanyId)
   const [selectedCustomer, setSelectedCustomer] = useState(customers[0].id)
   const [menuOpen, setMenuOpen] = useState(false)
   const [invoiceRows, setInvoiceRows] = useState([
@@ -238,12 +262,33 @@ function App() {
   const currentCustomer = companyCustomers.find((customer) => customer.id === selectedCustomer) ?? companyCustomers[0] ?? customers[0]
   const invoiceTotal = invoiceRows.reduce((sum, row) => sum + row.quantity * row.price * (1 + row.vat / 100), 0)
 
+  const setActiveCompanyId = (nextCompanyId: string) => {
+    setActiveCompanyIdState(nextCompanyId)
+    window.localStorage.setItem(sessionKeys.activeCompanyId, nextCompanyId)
+  }
+
+  const completeLogin = () => {
+    window.localStorage.setItem(sessionKeys.authenticated, 'true')
+    setScreen(readSessionFlag(sessionKeys.onboarded) ? 'dashboard' : 'onboarding')
+  }
+
+  const completeOnboarding = () => {
+    window.localStorage.setItem(sessionKeys.onboarded, 'true')
+    window.localStorage.setItem(sessionKeys.activeCompanyId, activeCompanyId)
+    setScreen('dashboard')
+  }
+
+  const logout = () => {
+    window.localStorage.removeItem(sessionKeys.authenticated)
+    setScreen('login')
+  }
+
   if (screen === 'login') {
-    return <AuthScreen onLogin={() => setScreen('onboarding')} />
+    return <AuthScreen onLogin={completeLogin} />
   }
 
   if (screen === 'onboarding') {
-    return <OnboardingScreen onComplete={() => setScreen('dashboard')} />
+    return <OnboardingScreen onComplete={completeOnboarding} />
   }
 
   const navigate = (next: Screen) => {
@@ -297,6 +342,7 @@ function App() {
             <button className="icon-button" aria-label="Meldingen">
               <Bell size={19} />
             </button>
+            <button className="ghost" onClick={logout}>Uitloggen</button>
           </div>
         </header>
 
@@ -365,6 +411,12 @@ function AuthScreen({ onLogin }: { onLogin: () => void }) {
 }
 
 function OnboardingScreen({ onComplete }: { onComplete: () => void }) {
+  const resetDemo = () => {
+    window.localStorage.removeItem(sessionKeys.onboarded)
+    window.localStorage.removeItem(sessionKeys.activeCompanyId)
+    window.location.reload()
+  }
+
   return (
     <div className="onboarding-page">
       <Brand />
@@ -385,6 +437,7 @@ function OnboardingScreen({ onComplete }: { onComplete: () => void }) {
           <label>BTW-nummer<input defaultValue="NL862145901B01" /></label>
           <label>Startpakket<select defaultValue="NOVA Start"><option>NOVA Start</option><option>NOVA ZZP</option><option>NOVA MKB</option><option>NOVA Enterprise</option></select></label>
           <button type="button" className="primary" onClick={onComplete}>Dashboard openen <ArrowRight size={18} /></button>
+          <button type="button" className="ghost full" onClick={resetDemo}>Demo opnieuw starten</button>
         </form>
       </section>
     </div>
