@@ -68,8 +68,10 @@ Na iedere push naar `main`:
 
 Live:
 
-- Huidige omgeving: https://nova-office.muldersign.nl
-- Nieuwe domeinnaam in voorbereiding: https://brenqo.nl
+- Productiedomein: https://brenqo.nl
+- Tijdelijke oude omgeving: https://nova-office.muldersign.nl
+
+Cloud86/Plesk moet voor `brenqo.nl` dezelfde `gh-pages` build publiceren als de tijdelijke omgeving. De repository publiceert automatisch een `CNAME` voor `brenqo.nl`; zet in Plesk de document root of Git deployment van `brenqo.nl` op de laatste `gh-pages` build.
 
 ## Referentieonderzoek
 

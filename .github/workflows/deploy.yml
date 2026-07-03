@@ -47,3 +47,4 @@ jobs:
           publish_dir: ./dist
           publish_branch: gh-pages
           force_orphan: true
+          cname: brenqo.nl
