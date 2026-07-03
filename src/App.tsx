@@ -21,7 +21,6 @@ import {
   FilePlus2,
   FileText,
   LayoutDashboard,
-  LogIn,
   Menu,
   Package,
   Plus,
@@ -1094,42 +1093,108 @@ function App() {
 }
 
 function AuthScreen({ onLogin }: { onLogin: () => void }) {
-  const [mode, setMode] = useState<'login' | 'register' | 'forgot'>('login')
-  const titles = {
-    login: 'Inloggen bij Brenqo',
-    register: 'Nieuw account aanmaken',
-    forgot: 'Wachtwoord herstellen',
-  }
-
   return (
     <div className="auth-page">
-      <section className="auth-visual">
-        <Brand />
-        <h1>Welkom bij Brenqo</h1>
-        <p>Een schaalbare bedrijfsomgeving voor dashboard, klanten, facturen, offertes, rollen en meerdere bedrijven.</p>
-        <div className="auth-stats">
-          <Metric label="Bedrijven" value="2" />
-          <Metric label="Rollen" value="4" />
-          <Metric label="MVP-modules" value="8" />
+      <section className="landing-shell">
+        <header className="landing-nav">
+          <Brand />
+          <nav className="landing-links" aria-label="Hoofdnavigatie">
+            <button>Producten</button>
+            <button>Prijzen</button>
+            <button>Over ons</button>
+            <button>Resources</button>
+          </nav>
+          <div className="landing-actions">
+            <button className="text-button" onClick={onLogin}>Inloggen</button>
+            <button className="dark-button" onClick={onLogin}>Gratis proberen</button>
+          </div>
+        </header>
+
+        <div className="landing-hero">
+          <div className="hero-copy">
+            <span className="pill">Een platform. Alles onder controle.</span>
+            <h1>Jouw administratie, maar dan <span>makkelijk</span></h1>
+            <p>Brenqo brengt facturen, offertes, klanten, producten en rapportages samen in een rustige werkruimte voor ondernemers.</p>
+            <div className="hero-actions">
+              <button className="dark-button large" onClick={onLogin}>Gratis proberen <ArrowRight size={17} /></button>
+              <button className="light-button large" onClick={onLogin}>Plan een demo</button>
+            </div>
+            <div className="trust-row">
+              <span><Check size={16} /> 14 dagen gratis</span>
+              <span><Check size={16} /> Geen creditcard nodig</span>
+              <span><Check size={16} /> Altijd opzegbaar</span>
+            </div>
+          </div>
+
+          <div className="hero-product">
+            <div className="desktop-preview">
+              <aside>
+                <Brand />
+                {['Dashboard', 'Facturen', 'Offertes', 'Relaties', 'Producten', 'Rapportages'].map((item) => <span key={item}>{item}</span>)}
+              </aside>
+              <main>
+                <div className="preview-top">
+                  <strong>Dashboard</strong>
+                  <input placeholder="Zoek..." readOnly />
+                </div>
+                <div className="preview-grid">
+                  <PreviewMetric title="Omzet" value="€ 125.430" tone="blue" />
+                  <PreviewMetric title="Resultaat" value="€ 32.540" tone="green" />
+                  <PreviewMetric title="Openstaand" value="€ 18.640" />
+                  <div className="preview-card wide-preview">
+                    <span>Cashflow</span>
+                    <div className="bar-chart">{Array.from({ length: 20 }, (_, index) => <i key={index} style={{ height: `${24 + (index % 6) * 9}px` }} />)}</div>
+                  </div>
+                </div>
+              </main>
+            </div>
+
+            <div className="phone-preview">
+              <div className="phone-top"><strong>Brenqo</strong><Menu size={18} /></div>
+              <span className="pill compact-pill">Alles onder controle.</span>
+              <h2>Jouw administratie, maar dan <span>makkelijk</span></h2>
+              <button className="dark-button full" onClick={onLogin}>Gratis proberen</button>
+              <PreviewMetric title="Omzet" value="€ 125.430" tone="blue" />
+              <PreviewMetric title="Openstaand" value="€ 18.640" />
+            </div>
+          </div>
         </div>
+
+        <section className="landing-products">
+          <h2>Alles wat je bedrijf nodig heeft</h2>
+          <p>Van administratie tot CRM. Brenqo groeit met je mee.</p>
+          <div className="product-strip">
+            {[
+              ['Finance', 'Facturen, offertes en btw.'],
+              ['CRM', 'Beheer relaties en kansen.'],
+              ['Projecten', 'Plan en factureer werk.'],
+              ['Uren', 'Hou uren eenvoudig bij.'],
+              ['Rapportages', 'Realtime inzicht.'],
+              ['Integraties', 'Koppel je tools.'],
+            ].map(([title, text]) => (
+              <article key={title}>
+                <span><Sparkles size={22} /></span>
+                <strong>{title}</strong>
+                <p>{text}</p>
+              </article>
+            ))}
+          </div>
+          <button className="dark-button large" onClick={onLogin}>Bekijk alle producten</button>
+        </section>
       </section>
-      <section className="auth-panel">
-        <p className="eyebrow">Authenticatie</p>
-        <h2>{titles[mode]}</h2>
-        {mode === 'register' && <label>Naam<input defaultValue="Glen Mulder" /></label>}
-        <label>E-mailadres<input defaultValue="ondernemer@brenqo.nl" /></label>
-        {mode !== 'forgot' && <label>Wachtwoord<input defaultValue="brenqodemo2026" type="password" /></label>}
-        {mode === 'register' && <label>Bedrijfsnaam<input defaultValue="Muldersign" /></label>}
-        <button className="primary full" onClick={onLogin}>
-          <LogIn size={18} />
-          {mode === 'forgot' ? 'Herstellink simuleren' : 'Doorgaan'}
-        </button>
-        <div className="auth-links">
-          <button onClick={() => setMode('login')}>Inloggen</button>
-          <button onClick={() => setMode('register')}>Registreren</button>
-          <button onClick={() => setMode('forgot')}>Wachtwoord vergeten</button>
-        </div>
-      </section>
+    </div>
+  )
+}
+
+function PreviewMetric({ title, value, tone }: { title: string; value: string; tone?: 'blue' | 'green' }) {
+  return (
+    <div className={`preview-card ${tone ?? ''}`}>
+      <span>{title}</span>
+      <strong>{value}</strong>
+      <small>+12,5% vs vorige maand</small>
+      <svg viewBox="0 0 180 54" role="img" aria-label={`${title} trend`}>
+        <polyline points="4,44 24,40 42,42 60,32 78,36 96,28 114,31 132,20 150,14 176,18" />
+      </svg>
     </div>
   )
 }
