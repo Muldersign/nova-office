@@ -4,6 +4,7 @@ export type FoundationTable =
   | 'company_memberships'
   | 'roles'
   | 'customers'
+  | 'products'
   | 'invoices'
   | 'invoice_items'
   | 'quotes'
@@ -13,6 +14,7 @@ export type FoundationTable =
 export const tenantScopedTables: FoundationTable[] = [
   'company_memberships',
   'customers',
+  'products',
   'invoices',
   'invoice_items',
   'quotes',
@@ -26,6 +28,7 @@ export const foundationSchema = {
   company_memberships: ['id', 'user_id', 'company_id', 'role_id', 'status'],
   roles: ['id', 'company_id', 'name', 'permissions'],
   customers: ['id', 'company_id', 'company_name', 'contact_name', 'email', 'phone', 'address', 'vat_number', 'chamber_number'],
+  products: ['id', 'company_id', 'name', 'description', 'unit_price', 'vat_rate', 'category', 'updated_at'],
   invoices: ['id', 'company_id', 'customer_id', 'number', 'status', 'invoice_date', 'due_date', 'subtotal', 'vat_total', 'total'],
   invoice_items: ['id', 'company_id', 'invoice_id', 'description', 'quantity', 'unit_price', 'vat_rate', 'line_total'],
   quotes: ['id', 'company_id', 'customer_id', 'number', 'status', 'valid_until', 'subtotal', 'vat_total', 'total'],

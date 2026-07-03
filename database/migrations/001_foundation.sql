@@ -49,6 +49,18 @@ CREATE TABLE customers (
   updated_at TEXT NOT NULL
 );
 
+CREATE TABLE products (
+  id TEXT PRIMARY KEY,
+  company_id TEXT NOT NULL REFERENCES companies(id),
+  name TEXT NOT NULL,
+  description TEXT NOT NULL,
+  unit_price INTEGER NOT NULL,
+  vat_rate REAL NOT NULL,
+  category TEXT NOT NULL,
+  created_at TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
 CREATE TABLE invoices (
   id TEXT PRIMARY KEY,
   company_id TEXT NOT NULL REFERENCES companies(id),
@@ -111,6 +123,7 @@ CREATE TABLE audit_events (
 );
 
 CREATE INDEX idx_customers_company_id ON customers(company_id);
+CREATE INDEX idx_products_company_id ON products(company_id);
 CREATE INDEX idx_company_settings_company_id ON company_settings(company_id);
 CREATE INDEX idx_invoices_company_id ON invoices(company_id);
 CREATE INDEX idx_invoice_items_company_id ON invoice_items(company_id);

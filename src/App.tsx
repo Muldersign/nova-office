@@ -37,6 +37,7 @@ import {
 import { calculateTotals, nextDocumentNumber, validateRequiredCustomer } from './foundation/business'
 import { foundationRules, foundationSchema, tenantScopedTables } from './foundation/database'
 import { createPrintableDocumentHtml } from './foundation/documents'
+import { createWorkspaceStore } from './services/workspaceStore'
 import './App.css'
 
 type Screen =
@@ -101,6 +102,16 @@ type TeamMember = {
   email: string
   role: CompanyRole
   status: TeamStatus
+}
+
+type Product = {
+  id: string
+  companyId: string
+  name: string
+  description: string
+  unitPrice: number
+  vat: number
+  category: 'Dienst' | 'Product' | 'Abonnement'
 }
 
 type Customer = {
@@ -325,6 +336,36 @@ const teamMembers: TeamMember[] = [
   { id: 'mem_orbit', companyId: 'comp_orbit_studio', name: 'Orbit beheer', email: 'beheer@orbitstudio.nl', role: 'Beheerder', status: 'Actief' },
 ]
 
+const products: Product[] = [
+  {
+    id: 'prd_strategy',
+    companyId,
+    name: 'Adviespakket Groei',
+    description: 'Strategisch advies en administratieve inrichting',
+    unitPrice: 1250,
+    vat: 21,
+    category: 'Dienst',
+  },
+  {
+    id: 'prd_support',
+    companyId,
+    name: 'Maandelijkse support',
+    description: 'Doorlopende ondersteuning en optimalisatie',
+    unitPrice: 395,
+    vat: 21,
+    category: 'Abonnement',
+  },
+  {
+    id: 'prd_orbit_brand',
+    companyId: 'comp_orbit_studio',
+    name: 'Merkadvies sprint',
+    description: 'Compact traject voor positionering en merkfundering',
+    unitPrice: 1750,
+    vat: 21,
+    category: 'Dienst',
+  },
+]
+
 const quotes: Quote[] = [
   {
     id: 'quo_01',
@@ -433,6 +474,7 @@ const workspaceKeys = {
   companies: 'nova.workspace.companies',
   companySettings: 'nova.workspace.companySettings',
   teamMembers: 'nova.workspace.teamMembers',
+  products: 'nova.workspace.products',
   customers: 'nova.workspace.customers',
   invoices: 'nova.workspace.invoices',
   quotes: 'nova.workspace.quotes',
@@ -444,34 +486,14 @@ function readSessionFlag(key: string) {
 }
 
 function readWorkspaceRecords<T>(key: string, fallback: T[]) {
-  if (typeof window === 'undefined') {
-    return fallback
-  }
-
-  if (window.localStorage.getItem(workspaceKeys.version) !== workspaceVersion) {
-    return fallback
-  }
-
-  const raw = window.localStorage.getItem(key)
-  if (!raw) {
-    return fallback
-  }
-
-  try {
-    const parsed = JSON.parse(raw) as T[]
-    return Array.isArray(parsed) ? parsed : fallback
-  } catch {
-    return fallback
-  }
+  const storage = typeof window === 'undefined' ? undefined : window.localStorage
+  const records = createWorkspaceStore(storage, workspaceKeys.version, workspaceVersion).read(key, fallback)
+  return Array.isArray(records) ? records : fallback
 }
 
 function writeWorkspaceRecords<T>(key: string, records: T[]) {
-  if (typeof window === 'undefined') {
-    return
-  }
-
-  window.localStorage.setItem(workspaceKeys.version, workspaceVersion)
-  window.localStorage.setItem(key, JSON.stringify(records))
+  const storage = typeof window === 'undefined' ? undefined : window.localStorage
+  createWorkspaceStore(storage, workspaceKeys.version, workspaceVersion).write(key, records)
 }
 
 function resetWorkspaceStorage() {
@@ -504,6 +526,7 @@ function App() {
   const [companyRecords, setCompanyRecords] = useState<Company[]>(() => readWorkspaceRecords(workspaceKeys.companies, companies))
   const [settingsRecords, setSettingsRecords] = useState<CompanySettings[]>(() => readWorkspaceRecords(workspaceKeys.companySettings, companySettings))
   const [teamRecords, setTeamRecords] = useState<TeamMember[]>(() => readWorkspaceRecords(workspaceKeys.teamMembers, teamMembers))
+  const [productRecords, setProductRecords] = useState<Product[]>(() => readWorkspaceRecords(workspaceKeys.products, products))
   const [customerRecords, setCustomerRecords] = useState<Customer[]>(() => readWorkspaceRecords(workspaceKeys.customers, customers))
   const [invoiceRecords, setInvoiceRecords] = useState<Invoice[]>(() => readWorkspaceRecords(workspaceKeys.invoices, invoices))
   const [quoteRecords, setQuoteRecords] = useState<Quote[]>(() => readWorkspaceRecords(workspaceKeys.quotes, quotes))
@@ -541,6 +564,7 @@ function App() {
   const companyQuotes = quoteRecords.filter((quote) => quote.companyId === activeCompanyId)
   const companyAuditEvents = auditRecords.filter((event) => event.companyId === activeCompanyId)
   const companyTeamMembers = teamRecords.filter((member) => member.companyId === activeCompanyId)
+  const companyProducts = productRecords.filter((product) => product.companyId === activeCompanyId)
   const filteredCustomers = companyCustomers.filter((customer) => customerMatches(customer, globalSearch))
   const filteredInvoices = companyInvoices.filter((invoice) => invoiceMatches(invoice, companyCustomers, globalSearch))
   const filteredQuotes = companyQuotes.filter((quote) => quoteMatches(quote, companyCustomers, globalSearch))
@@ -564,6 +588,10 @@ function App() {
   useEffect(() => {
     writeWorkspaceRecords(workspaceKeys.teamMembers, teamRecords)
   }, [teamRecords])
+
+  useEffect(() => {
+    writeWorkspaceRecords(workspaceKeys.products, productRecords)
+  }, [productRecords])
 
   useEffect(() => {
     writeWorkspaceRecords(workspaceKeys.customers, customerRecords)
@@ -711,6 +739,20 @@ function App() {
     appendAudit(settings.companyId, 'Bedrijfsinstellingen bijgewerkt', 'settings', settings.companyId)
   }
 
+  const saveProduct = (product: Product) => {
+    const exists = productRecords.some((record) => record.id === product.id)
+    setProductRecords((records) => (exists ? records.map((record) => (record.id === product.id ? product : record)) : [product, ...records]))
+    appendAudit(product.companyId, `${exists ? 'Productregel bijgewerkt' : 'Productregel toegevoegd'}: ${product.name}`, 'settings', product.id)
+  }
+
+  const deleteProduct = (productId: string) => {
+    const product = productRecords.find((record) => record.id === productId)
+    setProductRecords((records) => records.filter((record) => record.id !== productId))
+    if (product) {
+      appendAudit(product.companyId, `Productregel verwijderd: ${product.name}`, 'settings', product.id)
+    }
+  }
+
   const updateInvoiceStatus = (invoiceId: string, status: InvoiceStatus) => {
     const invoice = invoiceRecords.find((record) => record.id === invoiceId)
     setInvoiceRecords((records) => records.map((record) => (record.id === invoiceId ? { ...record, status } : record)))
@@ -750,6 +792,7 @@ function App() {
     setCompanyRecords(companies)
     setSettingsRecords(companySettings)
     setTeamRecords(teamMembers)
+    setProductRecords(products)
     setCustomerRecords(customers)
     setInvoiceRecords(invoices)
     setQuoteRecords(quotes)
@@ -767,6 +810,7 @@ function App() {
       companies: companyRecords,
       companySettings: settingsRecords,
       teamMembers: teamRecords,
+      products: productRecords,
       customers: customerRecords,
       invoices: invoiceRecords,
       quotes: quoteRecords,
@@ -835,7 +879,7 @@ function App() {
         </header>
 
         <div className="module-tabs" aria-label="MVP modules">
-          {(['dashboard', 'customers', 'invoices', 'quotes', 'companies', 'settings'] as Screen[]).map((module) => (
+          {(['dashboard', 'customers', 'invoices', 'quotes', 'products', 'companies', 'settings'] as Screen[]).map((module) => (
             <button key={module} className={screen === module ? 'active' : ''} onClick={() => navigate(module)}>
               {titleFor(module)}
             </button>
@@ -904,6 +948,7 @@ function App() {
             customers={companyCustomers}
             number={nextInvoiceNumber}
             settings={activeSettings}
+            products={companyProducts}
             rows={invoiceRows}
             total={invoiceTotal}
             onRowsChange={setInvoiceRows}
@@ -929,6 +974,7 @@ function App() {
             customers={companyCustomers}
             number={currentInvoice.number}
             settings={activeSettings}
+            products={companyProducts}
             rows={currentInvoice.items}
             total={currentInvoice.amount}
             invoice={currentInvoice}
@@ -955,6 +1001,7 @@ function App() {
             customers={companyCustomers}
             number={nextQuoteNumber}
             settings={activeSettings}
+            products={companyProducts}
             onBack={() => navigate('quotes')}
             onSave={saveQuote}
           />
@@ -978,6 +1025,7 @@ function App() {
             customers={companyCustomers}
             number={currentQuote.number}
             settings={activeSettings}
+            products={companyProducts}
             quote={currentQuote}
             onBack={() => navigate('quote-detail')}
             onSave={saveQuote}
@@ -1005,6 +1053,7 @@ function App() {
             onSave={saveCompany}
           />
         )}
+        {screen === 'products' && <Products products={companyProducts} activeCompanyId={activeCompanyId} onSave={saveProduct} onDelete={deleteProduct} />}
         {screen === 'roles' && <Roles members={companyTeamMembers} onInvite={inviteTeamMember} onRoleChange={updateTeamRole} />}
         {screen === 'database' && <DatabaseFoundation />}
         {screen === 'design-system' && <DesignSystem />}
@@ -1351,6 +1400,7 @@ function InvoiceCreate({
   customers,
   number,
   settings,
+  products,
   rows,
   total: initialTotal,
   invoice,
@@ -1362,6 +1412,7 @@ function InvoiceCreate({
   customers: Customer[]
   number: string
   settings: CompanySettings
+  products: Product[]
   rows: InvoiceRow[]
   total: number
   invoice?: Invoice
@@ -1379,6 +1430,12 @@ function InvoiceCreate({
   const subtotal = editableRows.reduce((sum, row) => sum + row.quantity * row.price, 0)
   const vatTotal = total - subtotal
   const addRow = () => setEditableRows([...editableRows, { description: 'Nieuwe regel', quantity: 1, price: 0, vat: settings.defaultVat }])
+  const addProduct = (productId: string) => {
+    const product = products.find((record) => record.id === productId)
+    if (product) {
+      changeRows([...editableRows, { description: product.name, quantity: 1, price: product.unitPrice, vat: product.vat }])
+    }
+  }
   const changeRows = (nextRows: InvoiceRow[]) => {
     setEditableRows(nextRows)
     if (!invoice) {
@@ -1430,7 +1487,7 @@ function InvoiceCreate({
           <span></span>
         </div>
         <div className="line-items">
-          {rows.map((row, index) => (
+          {editableRows.map((row, index) => (
             <div className="line-row" key={`${row.description}-${index}`}>
               <input value={row.description} onChange={(event) => updateRow(editableRows, changeRows, index, 'description', event.target.value)} />
               <input type="number" value={row.quantity} onChange={(event) => updateRow(editableRows, changeRows, index, 'quantity', Number(event.target.value))} />
@@ -1442,6 +1499,13 @@ function InvoiceCreate({
           ))}
         </div>
         <div className="invoice-actions">
+          <select defaultValue="" onChange={(event) => {
+            addProduct(event.target.value)
+            event.target.value = ''
+          }}>
+            <option value="">Productregel toevoegen</option>
+            {products.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}
+          </select>
           <button className="ghost" onClick={addRow}><Plus size={17} /> Regel toevoegen</button>
           <button className="primary" onClick={save}>Factuur opslaan</button>
         </div>
@@ -1454,7 +1518,7 @@ function InvoiceCreate({
           <span>Vervalt op {dueDate}</span>
         </div>
         <div className="preview-lines">
-          {rows.map((row, index) => (
+          {editableRows.map((row, index) => (
             <span key={`${row.description}-preview-${index}`}>
               <small>{row.description}</small>
               <strong>{eur.format(row.quantity * row.price)}</strong>
@@ -1605,6 +1669,7 @@ function QuoteCreate({
   customers,
   number,
   settings,
+  products,
   quote,
   onBack,
   onSave,
@@ -1613,6 +1678,7 @@ function QuoteCreate({
   customers: Customer[]
   number: string
   settings: CompanySettings
+  products: Product[]
   quote?: Quote
   onBack: () => void
   onSave: (quote: Quote) => void
@@ -1623,7 +1689,13 @@ function QuoteCreate({
   const [rows, setRows] = useState<InvoiceRow[]>(quote?.items ?? [{ description: 'Nieuw voorstel', quantity: 1, price: 1500, vat: settings.defaultVat }])
   const [error, setError] = useState('')
   const totals = calculateTotals(rows)
-  const addRow = () => setRows([...rows, { description: 'Nieuwe regel', quantity: 1, price: 0, vat: 21 }])
+  const addRow = () => setRows([...rows, { description: 'Nieuwe regel', quantity: 1, price: 0, vat: settings.defaultVat }])
+  const addProduct = (productId: string) => {
+    const product = products.find((record) => record.id === productId)
+    if (product) {
+      setRows([...rows, { description: product.name, quantity: 1, price: product.unitPrice, vat: product.vat }])
+    }
+  }
   const save = () => {
     if (!customerId || rows.some((row) => !row.description.trim() || row.quantity <= 0 || row.price < 0)) {
       setError('Kies een klant en vul alle offerteregels correct in.')
@@ -1676,6 +1748,13 @@ function QuoteCreate({
           ))}
         </div>
         <div className="invoice-actions">
+          <select defaultValue="" onChange={(event) => {
+            addProduct(event.target.value)
+            event.target.value = ''
+          }}>
+            <option value="">Productregel toevoegen</option>
+            {products.map((product) => <option key={product.id} value={product.id}>{product.name}</option>)}
+          </select>
           <button className="ghost" onClick={addRow}><Plus size={17} /> Regel toevoegen</button>
           <button className="primary" onClick={save}>Offerte opslaan</button>
         </div>
@@ -1871,6 +1950,78 @@ function CompanyForm({
         <button className="primary" onClick={save}>Bedrijf opslaan</button>
       </div>
     </section>
+  )
+}
+
+function Products({
+  products,
+  activeCompanyId,
+  onSave,
+  onDelete,
+}: {
+  products: Product[]
+  activeCompanyId: string
+  onSave: (product: Product) => void
+  onDelete: (productId: string) => void
+}) {
+  const emptyProduct = (): Product => ({
+    id: `prd_${Date.now()}`,
+    companyId: activeCompanyId,
+    name: '',
+    description: '',
+    unitPrice: 0,
+    vat: 21,
+    category: 'Dienst',
+  })
+  const [form, setForm] = useState<Product>(emptyProduct)
+  const [error, setError] = useState('')
+  const update = (field: keyof Product, value: string | number) => setForm((current) => ({ ...current, [field]: value }))
+  const save = () => {
+    if (!form.name.trim() || form.unitPrice < 0) {
+      setError('Vul minimaal een naam en geldige prijs in.')
+      return
+    }
+
+    onSave({ ...form, companyId: activeCompanyId })
+    setForm(emptyProduct())
+    setError('')
+  }
+
+  return (
+    <div className="content-grid">
+      <section className="panel wide">
+        <PanelHeader title="Producten en diensten" />
+        <DataTable
+          columns={['Naam', 'Categorie', 'Omschrijving', 'Prijs', 'BTW', 'Acties']}
+          rows={products.map((product) => [
+            product.name,
+            product.category,
+            product.description,
+            eur.format(product.unitPrice),
+            `${product.vat}%`,
+            <div key={product.id} className="table-actions">
+              <button className="table-link" onClick={() => setForm(product)}>Bewerken</button>
+              <button className="table-link danger-link" onClick={() => onDelete(product.id)}>Verwijderen</button>
+            </div>,
+          ])}
+        />
+      </section>
+      <section className="panel wide">
+        <PanelHeader title={products.some((product) => product.id === form.id) ? 'Productregel bewerken' : 'Productregel toevoegen'} />
+        {error && <p className="form-error">{error}</p>}
+        <div className="form-grid">
+          <label>Naam<input value={form.name} onChange={(event) => update('name', event.target.value)} /></label>
+          <label>Categorie<select value={form.category} onChange={(event) => update('category', event.target.value as Product['category'])}><option>Dienst</option><option>Product</option><option>Abonnement</option></select></label>
+          <label>Omschrijving<input value={form.description} onChange={(event) => update('description', event.target.value)} /></label>
+          <label>Prijs<input type="number" value={form.unitPrice} onChange={(event) => update('unitPrice', Number(event.target.value))} /></label>
+          <label>BTW<select value={form.vat} onChange={(event) => update('vat', Number(event.target.value))}><option value={21}>21%</option><option value={9}>9%</option><option value={0}>0%</option></select></label>
+        </div>
+        <div className="invoice-actions">
+          <button className="primary" onClick={save}>Productregel opslaan</button>
+          <button className="ghost" onClick={() => setForm(emptyProduct())}>Nieuw formulier</button>
+        </div>
+      </section>
+    </div>
   )
 }
 

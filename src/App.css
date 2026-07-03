@@ -550,6 +550,10 @@ th {
   font-weight: 800;
 }
 
+.danger-link {
+  color: var(--red);
+}
+
 .table-actions {
   display: flex;
   gap: 12px;

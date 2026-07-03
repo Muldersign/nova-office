@@ -54,6 +54,18 @@ export type CustomerRecord = {
   updatedAt: string
 }
 
+export type ProductRecord = {
+  id: string
+  companyId: string
+  name: string
+  description: string
+  unitPrice: number
+  vatRate: number
+  category: 'service' | 'product' | 'subscription'
+  createdAt: string
+  updatedAt: string
+}
+
 export type DocumentLineRecord = {
   id: string
   companyId: string
@@ -109,6 +121,7 @@ export type NovaDatabase = {
   memberships: MembershipRecord[]
   companySettings: CompanySettingsRecord[]
   customers: CustomerRecord[]
+  products: ProductRecord[]
   invoices: InvoiceRecord[]
   invoiceItems: DocumentLineRecord[]
   quotes: QuoteRecord[]
@@ -122,6 +135,7 @@ export const emptyDatabase = (): NovaDatabase => ({
   memberships: [],
   companySettings: [],
   customers: [],
+  products: [],
   invoices: [],
   invoiceItems: [],
   quotes: [],
@@ -133,6 +147,7 @@ export const tenantTables = [
   'memberships',
   'companySettings',
   'customers',
+  'products',
   'invoices',
   'invoiceItems',
   'quotes',
