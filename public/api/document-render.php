@@ -43,10 +43,10 @@ function build_document_pdf(array $payload): string
     $content = "";
     pdf_rect($content, 0, 0, 595, 842, '0.97 0.98 1');
     pdf_rect($content, 36, 36, 523, 770, '1 1 1');
-    pdf_rect($content, 36, 36, 523, 96, '0.04 0.06 0.11');
-    pdf_text($content, 'BRENQO', 58, 92, 24, true, '1 1 1');
-    pdf_text($content, $label . ' ' . $number, 58, 66, 15, false, '0.85 0.88 0.95');
-    pdf_text($content, $status, 470, 92, 11, true, '1 1 1');
+    pdf_rect($content, 36, 36, 523, 82, '0.04 0.06 0.11');
+    pdf_text($content, 'BRENQO', 58, 82, 24, true, '1 1 1');
+    pdf_text($content, $label . ' ' . $number, 58, 58, 15, false, '0.85 0.88 0.95');
+    pdf_text($content, $status, 470, 66, 11, true, '1 1 1');
 
     pdf_text($content, $company, 58, 748, 18, true);
     $companyRows = array_filter([
@@ -118,7 +118,7 @@ function build_document_pdf(array $payload): string
     ]);
     pdf_multiline($content, implode('   ', $paymentRows), 78, 172, 10, 13, 430);
 
-    pdf_multiline($content, $footer, 58, 105, 10, 14, 480, '0.38 0.43 0.52');
+    pdf_multiline($content, $footer, 58, 138, 10, 14, 480, '0.38 0.43 0.52');
 
     return assemble_pdf($content);
 }
