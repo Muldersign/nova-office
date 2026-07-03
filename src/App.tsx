@@ -36,6 +36,8 @@ import {
 import { calculateTotals, nextDocumentNumber, validateRequiredCustomer } from './foundation/business'
 import { foundationRules, foundationSchema, tenantScopedTables } from './foundation/database'
 import { createPrintableDocumentHtml } from './foundation/documents'
+import { submitAuth, type AuthMode } from './services/authService'
+import { getSupabaseClient } from './services/supabaseClient'
 import { createWorkspaceStore } from './services/workspaceStore'
 import './App.css'
 
@@ -524,6 +526,14 @@ function resetWorkspaceStorage() {
   Object.values(workspaceKeys).forEach((key) => window.localStorage.removeItem(key))
 }
 
+function createRecordId(prefix: string) {
+  if (typeof crypto !== 'undefined' && 'randomUUID' in crypto) {
+    return crypto.randomUUID()
+  }
+
+  return `${prefix}_${Date.now()}`
+}
+
 function readActiveCompanyId() {
   if (typeof window === 'undefined') {
     return companyId
@@ -646,6 +656,7 @@ function App() {
   }
 
   const logout = () => {
+    void getSupabaseClient()?.auth.signOut()
     window.localStorage.removeItem(sessionKeys.authenticated)
     setScreen('login')
   }
@@ -666,7 +677,7 @@ function App() {
   const appendAudit = (companyId: string, action: string, entityType: AuditEvent['entityType'], entityId: string) => {
     setAuditRecords((records) => [
       {
-        id: `evt_${Date.now()}`,
+        id: createRecordId('evt'),
         companyId,
         action,
         entityType,
@@ -729,17 +740,17 @@ function App() {
   }
 
   const duplicateInvoice = (invoice: Invoice) => {
-    saveInvoice({ ...invoice, id: `inv_${Date.now()}`, number: nextInvoiceNumber, status: 'Concept', date: todayIso(), due: addDaysIso(activeSettings.paymentTermDays) })
+    saveInvoice({ ...invoice, id: createRecordId('inv'), number: nextInvoiceNumber, status: 'Concept', date: todayIso(), due: addDaysIso(activeSettings.paymentTermDays) })
   }
 
   const duplicateQuote = (quote: Quote) => {
-    saveQuote({ ...quote, id: `quo_${Date.now()}`, number: nextQuoteNumber, status: 'Concept', validUntil: addDaysIso(21) })
+    saveQuote({ ...quote, id: createRecordId('quo'), number: nextQuoteNumber, status: 'Concept', validUntil: addDaysIso(21) })
   }
 
   const inviteTeamMember = (input: Pick<TeamMember, 'name' | 'email' | 'role'>) => {
     const member: TeamMember = {
       ...input,
-      id: `mem_${Date.now()}`,
+      id: createRecordId('mem'),
       companyId: activeCompanyId,
       status: 'Uitgenodigd',
     }
@@ -791,7 +802,7 @@ function App() {
 
   const convertQuoteToInvoice = (quote: Quote) => {
     const invoice: Invoice = {
-      id: `inv_${Date.now()}`,
+      id: createRecordId('inv'),
       companyId: quote.companyId,
       customerId: quote.customerId,
       number: nextInvoiceNumber,
@@ -1097,6 +1108,13 @@ function AuthScreen({ onLogin }: { onLogin: () => void }) {
   const [demoName, setDemoName] = useState('')
   const [demoEmail, setDemoEmail] = useState('')
   const [demoSubmitted, setDemoSubmitted] = useState(false)
+  const [authMode, setAuthMode] = useState<AuthMode>('register')
+  const [authName, setAuthName] = useState('Glen Mulder')
+  const [authCompany, setAuthCompany] = useState('Muldersign')
+  const [authEmail, setAuthEmail] = useState('administratie@muldersign.nl')
+  const [authPassword, setAuthPassword] = useState('')
+  const [authMessage, setAuthMessage] = useState('')
+  const [authBusy, setAuthBusy] = useState(false)
   const productViews = [
     {
       name: 'Facturen',
@@ -1133,6 +1151,30 @@ function AuthScreen({ onLogin }: { onLogin: () => void }) {
     event.preventDefault()
     setDemoSubmitted(true)
   }
+  const openAuth = (mode: AuthMode) => {
+    setAuthMode(mode)
+    setAuthMessage('')
+    scrollTo('auth')
+  }
+  const submitAuthForm = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setAuthBusy(true)
+    setAuthMessage('')
+
+    const result = await submitAuth(getSupabaseClient(), authMode, {
+      email: authEmail,
+      password: authPassword,
+      name: authName,
+      companyName: authCompany,
+      redirectTo: `${window.location.origin}/`,
+    })
+
+    setAuthBusy(false)
+    setAuthMessage(result.message)
+    if (result.ok && authMode !== 'forgot') {
+      onLogin()
+    }
+  }
 
   return (
     <div className="auth-page">
@@ -1146,8 +1188,8 @@ function AuthScreen({ onLogin }: { onLogin: () => void }) {
             <button onClick={() => scrollTo('demo')}>Demo</button>
           </nav>
           <div className="landing-actions">
-            <button className="text-button" onClick={onLogin}>Inloggen</button>
-            <button className="dark-button" onClick={onLogin}>Gratis proberen</button>
+            <button className="text-button" onClick={() => openAuth('login')}>Inloggen</button>
+            <button className="dark-button" onClick={() => openAuth('register')}>Gratis proberen</button>
           </div>
         </header>
 
@@ -1157,7 +1199,7 @@ function AuthScreen({ onLogin }: { onLogin: () => void }) {
             <h1>Jouw administratie, maar dan <span>makkelijk</span></h1>
             <p>Brenqo brengt facturen, offertes, klanten, producten en rapportages samen in een snelle werkruimte voor ondernemers.</p>
             <div className="hero-actions">
-              <button className="dark-button large" onClick={onLogin}>Gratis proberen <ArrowRight size={17} /></button>
+              <button className="dark-button large" onClick={() => openAuth('register')}>Gratis proberen <ArrowRight size={17} /></button>
               <button className="light-button large" onClick={() => scrollTo('demo')}>Plan een demo</button>
             </div>
             <div className="trust-row">
@@ -1247,7 +1289,7 @@ function AuthScreen({ onLogin }: { onLogin: () => void }) {
               </button>
             ))}
           </div>
-          <button className="dark-button large" onClick={onLogin}>Start met je werkruimte</button>
+          <button className="dark-button large" onClick={() => openAuth('register')}>Start met je werkruimte</button>
         </section>
 
         <section className="workflow-section" id="workflow">
@@ -1290,7 +1332,7 @@ function AuthScreen({ onLogin }: { onLogin: () => void }) {
                 <span>Brenqo {name}</span>
                 <strong>{price}<small>/ maand</small></strong>
                 <p>{text}</p>
-                <button className={name === 'ZZP' ? 'dark-button' : 'light-button'} onClick={onLogin}>Probeer {name}</button>
+                <button className={name === 'ZZP' ? 'dark-button' : 'light-button'} onClick={() => openAuth('register')}>Probeer {name}</button>
               </article>
             ))}
           </div>
@@ -1306,8 +1348,33 @@ function AuthScreen({ onLogin }: { onLogin: () => void }) {
             <label>Naam<input value={demoName} onChange={(event) => setDemoName(event.target.value)} placeholder="Je naam" required /></label>
             <label>E-mailadres<input value={demoEmail} onChange={(event) => setDemoEmail(event.target.value)} placeholder="naam@bedrijf.nl" type="email" required /></label>
             <button className="dark-button full" type="submit">Demo aanvragen</button>
-            <button className="light-button full" type="button" onClick={onLogin}>Open de app</button>
+            <button className="light-button full" type="button" onClick={() => openAuth('login')}>Open de app</button>
             {demoSubmitted && <p className="success-note">Demo-aanvraag staat klaar voor {demoName || demoEmail}. In de backendfase koppelen we dit aan mail en CRM.</p>}
+          </form>
+        </section>
+
+        <section className="auth-section" id="auth">
+          <div>
+            <span className="pill">Brenqo account</span>
+            <h2>{authMode === 'login' ? 'Log in op je werkruimte' : authMode === 'forgot' ? 'Herstel je wachtwoord' : 'Maak je werkruimte aan'}</h2>
+            <p>Deze flow gebruikt Supabase Auth zodra de live database is ingericht. Lokaal blijft een demo-sessie beschikbaar voor ontwikkeling.</p>
+          </div>
+          <form className="auth-form" onSubmit={submitAuthForm}>
+            {authMode === 'register' && (
+              <>
+                <label>Naam<input value={authName} onChange={(event) => setAuthName(event.target.value)} /></label>
+                <label>Bedrijf<input value={authCompany} onChange={(event) => setAuthCompany(event.target.value)} /></label>
+              </>
+            )}
+            <label>E-mailadres<input value={authEmail} onChange={(event) => setAuthEmail(event.target.value)} type="email" /></label>
+            {authMode !== 'forgot' && <label>Wachtwoord<input value={authPassword} onChange={(event) => setAuthPassword(event.target.value)} type="password" placeholder="Minimaal 8 tekens" /></label>}
+            <button className="dark-button full" disabled={authBusy} type="submit">{authBusy ? 'Bezig...' : authMode === 'login' ? 'Inloggen' : authMode === 'forgot' ? 'Herstellink sturen' : 'Account aanmaken'}</button>
+            <div className="auth-switcher">
+              <button type="button" onClick={() => setAuthMode('login')}>Inloggen</button>
+              <button type="button" onClick={() => setAuthMode('register')}>Registreren</button>
+              <button type="button" onClick={() => setAuthMode('forgot')}>Wachtwoord vergeten</button>
+            </div>
+            {authMessage && <p className={authMessage.includes('geldig') || authMessage.includes('minimaal') ? 'form-error' : 'success-note'}>{authMessage}</p>}
           </form>
         </section>
 
@@ -1472,7 +1539,7 @@ function CustomerForm({
   onSave: (customer: Customer) => void
 }) {
   const [form, setForm] = useState<Customer>(() => customer ?? {
-    id: `cus_${Date.now()}`,
+    id: createRecordId('cus'),
     companyId: activeCompanyId,
     name: '',
     contact: '',
@@ -1672,7 +1739,7 @@ function InvoiceCreate({
 
     onRowsChange(editableRows)
     onSave({
-      id: invoice?.id ?? `inv_${Date.now()}`,
+      id: invoice?.id ?? createRecordId('inv'),
       companyId: activeCompanyId,
       customerId,
       number,
@@ -1930,7 +1997,7 @@ function QuoteCreate({
     }
 
     onSave({
-      id: quote?.id ?? `quo_${Date.now()}`,
+      id: quote?.id ?? createRecordId('quo'),
       companyId: activeCompanyId,
       customerId,
       number,
@@ -2161,7 +2228,7 @@ function CompanyForm({
     }
 
     onSave({
-      id: company?.id ?? `comp_${Date.now()}`,
+      id: company?.id ?? createRecordId('comp'),
       name,
       address,
       postalCode,
@@ -2217,7 +2284,7 @@ function Products({
   onDelete: (productId: string) => void
 }) {
   const emptyProduct = (): Product => ({
-    id: `prd_${Date.now()}`,
+    id: createRecordId('prd'),
     companyId: activeCompanyId,
     name: '',
     description: '',

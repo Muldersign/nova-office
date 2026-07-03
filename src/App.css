@@ -590,7 +590,8 @@ button {
 
 .workflow-section,
 .pricing-section,
-.demo-section {
+.demo-section,
+.auth-section {
   padding: 88px max(32px, calc((100vw - 1440px) / 2));
   border-top: 1px solid #edf0f6;
 }
@@ -605,7 +606,8 @@ button {
 
 .workflow-section h2,
 .pricing-section h2,
-.demo-section h2 {
+.demo-section h2,
+.auth-section h2 {
   max-width: 720px;
   margin: 20px 0 12px;
   color: #090d18;
@@ -615,7 +617,8 @@ button {
 
 .workflow-section p,
 .section-heading p,
-.demo-section p {
+.demo-section p,
+.auth-section p {
   max-width: 660px;
   margin: 0;
   color: #667085;
@@ -632,7 +635,8 @@ button {
 
 .workflow-grid article,
 .price-grid article,
-.demo-form {
+.demo-form,
+.auth-form {
   min-height: 230px;
   padding: 22px;
   border: 1px solid #e5e7eb;
@@ -709,17 +713,41 @@ button {
   background: #fbfcff;
 }
 
-.demo-form {
+.auth-section {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) 460px;
+  gap: 34px;
+  align-items: start;
+  background: #fff;
+}
+
+.demo-form,
+.auth-form {
   min-height: auto;
   display: grid;
   gap: 14px;
 }
 
-.demo-form label {
+.demo-form label,
+.auth-form label {
   display: grid;
   gap: 8px;
   color: #667085;
   font-weight: 800;
+}
+
+.auth-switcher {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.auth-switcher button {
+  border: 0;
+  background: transparent;
+  color: #6d66ff;
+  font-weight: 900;
+  padding: 0;
 }
 
 .success-note {
@@ -1735,7 +1763,8 @@ th {
   }
 
   .workflow-section,
-  .demo-section {
+  .demo-section,
+  .auth-section {
     grid-template-columns: 1fr;
   }
 
@@ -1889,13 +1918,15 @@ th {
 
   .workflow-section,
   .pricing-section,
-  .demo-section {
+  .demo-section,
+  .auth-section {
     padding: 44px 16px;
   }
 
   .workflow-section h2,
   .pricing-section h2,
-  .demo-section h2 {
+  .demo-section h2,
+  .auth-section h2 {
     font-size: 32px;
   }
 

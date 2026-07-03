@@ -45,6 +45,14 @@ VITE_MAIL_FROM=send@brenqo.nl
 
 Het gekoppelde Supabase-project is `iwgdsinkprrfarrxrpik`. De anon public key mag in frontend-builds gebruikt worden. Zet geen wachtwoorden, SMTP-passwords of service-role keys in Git. Die horen later in Cloud86/Plesk of Supabase secrets.
 
+Voer voor de echte databasefundering de migratie uit in de Supabase SQL editor:
+
+```bash
+database/migrations/002_supabase_auth_rls.sql
+```
+
+Deze migratie maakt Supabase Auth-profielen, bedrijven, memberships, instellingen, klanten, producten, facturen, offertes, regels, audit events en RLS-policies aan. Nieuwe registraties gebruiken daarna `bootstrap_workspace` om automatisch een eerste bedrijf en eigenaarrol klaar te zetten.
+
 ## Development
 
 ```bash
