@@ -723,7 +723,7 @@ function App() {
   useEffect(() => {
     let active = true
     const client = getSupabaseClient()
-    if (!client || screen === 'login') {
+    if (!client || !readSessionFlag(sessionKeys.authenticated)) {
       return () => {
         active = false
       }
@@ -745,7 +745,7 @@ function App() {
     return () => {
       active = false
     }
-  }, [screen])
+  }, [])
 
   const setActiveCompanyId = (nextCompanyId: string) => {
     setActiveCompanyIdState(nextCompanyId)
