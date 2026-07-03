@@ -5,6 +5,7 @@ export type AuthMode = 'login' | 'register' | 'forgot'
 export type AuthResult = {
   ok: boolean
   message: string
+  openApp?: boolean
 }
 
 export function validateAuthInput(mode: AuthMode, email: string, password: string, name?: string, companyName?: string): AuthResult {
@@ -38,7 +39,7 @@ export async function submitAuth(
   }
 
   if (!client) {
-    return { ok: true, message: 'Supabase staat lokaal uit; demo-sessie geopend.' }
+    return { ok: true, message: 'Supabase staat lokaal uit; demo-sessie geopend.', openApp: true }
   }
 
   if (mode === 'forgot') {
@@ -67,10 +68,10 @@ export async function submitAuth(
       if (!bootstrap.ok) {
         return bootstrap
       }
-      return { ok: true, message: 'Account aangemaakt en werkruimte geopend.' }
+      return { ok: true, message: 'Account aangemaakt en werkruimte geopend.', openApp: true }
     }
 
-    return { ok: true, message: 'Account aangemaakt. Bevestig eventueel je e-mailadres.' }
+    return { ok: true, message: 'Account aangemaakt. Bevestig je e-mailadres voordat je inlogt.' }
   }
 
   const { error } = await client.auth.signInWithPassword({ email: input.email, password: input.password })
@@ -83,7 +84,7 @@ export async function submitAuth(
     return bootstrap
   }
 
-  return { ok: true, message: 'Je bent ingelogd.' }
+  return { ok: true, message: 'Je bent ingelogd.', openApp: true }
 }
 
 export async function bootstrapWorkspace(client: SupabaseClient, name: string, companyName: string) {

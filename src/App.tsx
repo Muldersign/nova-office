@@ -1330,7 +1330,7 @@ function AuthScreen({ onLogin }: { onLogin: () => Promise<void> }) {
 
     setAuthBusy(false)
     setAuthMessage(result.message)
-    if (result.ok && authMode !== 'forgot') {
+    if (result.openApp && authMode !== 'forgot') {
       await onLogin()
     }
   }
