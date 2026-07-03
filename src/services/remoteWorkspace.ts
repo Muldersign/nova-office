@@ -144,6 +144,8 @@ export async function upsertRemoteSettings(client: SupabaseClient, settings: Rec
     payment_term_days: settings.paymentTermDays,
     invoice_prefix: settings.invoicePrefix,
     quote_prefix: settings.quotePrefix,
+    payment_reference_prefix: settings.paymentReferencePrefix,
+    document_footer: settings.documentFooter,
     updated_at: new Date().toISOString(),
   })
   throwIfRemoteError(error)
@@ -239,6 +241,8 @@ function toCompanySettings(row: Record<string, unknown>) {
     paymentTermDays: row.payment_term_days,
     invoicePrefix: row.invoice_prefix,
     quotePrefix: row.quote_prefix,
+    paymentReferencePrefix: row.payment_reference_prefix ?? 'Factuur',
+    documentFooter: row.document_footer ?? 'Bedankt voor de samenwerking. Vragen? Reageer op deze factuurmail.',
   }
 }
 

@@ -36,6 +36,7 @@ import {
 import { calculateTotals, nextDocumentNumber, validateRequiredCustomer } from './foundation/business'
 import { foundationRules, foundationSchema, tenantScopedTables } from './foundation/database'
 import { createPrintableDocumentHtml } from './foundation/documents'
+import { createInviteEmail, createInviteToken, safeDocumentFilename } from './foundation/workflows'
 import { submitAuth, type AuthMode } from './services/authService'
 import {
   deleteRemoteRecord,
@@ -111,6 +112,8 @@ type CompanySettings = {
   paymentTermDays: number
   invoicePrefix: string
   quotePrefix: string
+  paymentReferencePrefix: string
+  documentFooter: string
 }
 
 type TeamMember = {
@@ -358,8 +361,8 @@ const invoices: Invoice[] = [
 ]
 
 const companySettings: CompanySettings[] = [
-  { companyId: 'comp_muldersign', defaultVat: 21, paymentTermDays: 14, invoicePrefix: '2026', quotePrefix: 'OFF-2026' },
-  { companyId: 'comp_brenqo_demo', defaultVat: 21, paymentTermDays: 30, invoicePrefix: '2026', quotePrefix: 'OFF-2026' },
+  { companyId: 'comp_muldersign', defaultVat: 21, paymentTermDays: 14, invoicePrefix: '2026', quotePrefix: 'OFF-2026', paymentReferencePrefix: 'Factuur', documentFooter: 'Bedankt voor de samenwerking. Vragen? Reageer op deze factuurmail.' },
+  { companyId: 'comp_brenqo_demo', defaultVat: 21, paymentTermDays: 30, invoicePrefix: '2026', quotePrefix: 'OFF-2026', paymentReferencePrefix: 'Factuur', documentFooter: 'Bedankt voor je vertrouwen in Brenqo.' },
 ]
 
 const teamMembers: TeamMember[] = [
@@ -599,6 +602,7 @@ function App() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [globalSearch, setGlobalSearch] = useState('')
   const [syncMessage, setSyncMessage] = useState('')
+  const [invitePreview, setInvitePreview] = useState<{ subject: string; body: string; link: string } | null>(null)
   const [invoiceRows, setInvoiceRows] = useState([
     { description: 'Adviespakket Groei', quantity: 1, price: 1250, vat: 21 },
     { description: 'Maandelijkse support', quantity: 1, price: 395, vat: 21 },
@@ -759,9 +763,23 @@ function App() {
     setScreen(readSessionFlag(sessionKeys.onboarded) ? 'dashboard' : 'onboarding')
   }
 
-  const completeOnboarding = () => {
+  const completeOnboarding = async (company: Company) => {
+    setCompanyRecords((records) => records.some((record) => record.id === company.id)
+      ? records.map((record) => (record.id === company.id ? company : record))
+      : [company, ...records])
+    setSettingsRecords((records) => records.some((record) => record.companyId === company.id) ? records : [defaultSettingsFor(company.id), ...records])
+    const client = getSupabaseClient()
+    if (client) {
+      try {
+        await upsertRemoteCompany(client, company)
+        setSyncMessage('Bedrijf ingericht.')
+      } catch (error) {
+        setSyncMessage(error instanceof Error ? `Supabase fout: ${error.message}` : 'Bedrijf lokaal ingericht.')
+      }
+    }
     window.localStorage.setItem(sessionKeys.onboarded, 'true')
-    window.localStorage.setItem(sessionKeys.activeCompanyId, activeCompanyId)
+    window.localStorage.setItem(sessionKeys.activeCompanyId, company.id)
+    setActiveCompanyIdState(company.id)
     setScreen('dashboard')
   }
 
@@ -780,7 +798,7 @@ function App() {
   }
 
   if (screen === 'onboarding') {
-    return <OnboardingScreen onComplete={completeOnboarding} />
+    return <OnboardingScreen company={activeCompany} onComplete={(company) => { void completeOnboarding(company) }} />
   }
 
   const navigate = (next: Screen) => {
@@ -895,13 +913,24 @@ function App() {
   }
 
   const inviteTeamMember = (input: Pick<TeamMember, 'name' | 'email' | 'role'>) => {
+    const token = createInviteToken(input.email, activeCompanyId)
+    const origin = window.location.origin
     const member: TeamMember = {
       ...input,
-      id: createRecordId('mem'),
+      id: token,
       companyId: activeCompanyId,
       status: 'Uitgenodigd',
     }
     setTeamRecords((records) => [member, ...records])
+    setInvitePreview(createInviteEmail({
+      companyName: activeCompany.name,
+      inviterName: activeCompany.email || activeCompany.name,
+      inviteeName: input.name,
+      inviteeEmail: input.email,
+      role: input.role,
+      token,
+      origin,
+    }))
     appendAudit(activeCompanyId, `Teamlid uitgenodigd: ${member.email}`, 'company', member.id)
   }
 
@@ -1156,6 +1185,7 @@ function App() {
             invoice={currentInvoice}
             customers={companyCustomers}
             company={activeCompany}
+            settings={activeSettings}
             onBack={() => navigate('invoices')}
             onEdit={() => requirePermission(canEditFinancial, () => navigate('invoice-edit'))}
             onDuplicate={() => requirePermission(canEditFinancial, () => { void duplicateInvoice(currentInvoice) })}
@@ -1206,6 +1236,7 @@ function App() {
             quote={currentQuote}
             customers={companyCustomers}
             company={activeCompany}
+            settings={activeSettings}
             onBack={() => navigate('quotes')}
             onEdit={() => requirePermission(canEditFinancial, () => navigate('quote-edit'))}
             onDuplicate={() => requirePermission(canEditFinancial, () => { void duplicateQuote(currentQuote) })}
@@ -1249,7 +1280,7 @@ function App() {
           />
         )}
         {screen === 'products' && <Products products={companyProducts} activeCompanyId={activeCompanyId} onSave={(product) => requirePermission(canEditFinancial, () => { void saveProduct(product) })} onDelete={(productId) => requirePermission(canEditFinancial, () => { void deleteProduct(productId) })} />}
-        {screen === 'roles' && <Roles members={companyTeamMembers} canManage={canManageCompany} onInvite={(member) => requirePermission(canManageCompany, () => inviteTeamMember(member))} onRoleChange={(memberId, role) => requirePermission(canManageCompany, () => updateTeamRole(memberId, role))} />}
+        {screen === 'roles' && <Roles members={companyTeamMembers} canManage={canManageCompany} invitePreview={invitePreview} onInvite={(member) => requirePermission(canManageCompany, () => inviteTeamMember(member))} onRoleChange={(memberId, role) => requirePermission(canManageCompany, () => updateTeamRole(memberId, role))} />}
         {screen === 'database' && <DatabaseFoundation />}
         {screen === 'design-system' && <DesignSystem />}
         {screen === 'settings' && (
@@ -1585,11 +1616,22 @@ function PreviewMetric({ title, value, tone }: { title: string; value: string; t
   )
 }
 
-function OnboardingScreen({ onComplete }: { onComplete: () => void }) {
+function OnboardingScreen({ company, onComplete }: { company: Company; onComplete: (company: Company) => void }) {
+  const [form, setForm] = useState<Company>(company)
+  const [error, setError] = useState('')
+  const update = (field: keyof Company, value: string) => setForm((current) => ({ ...current, [field]: value }))
   const resetDemo = () => {
     window.localStorage.removeItem(sessionKeys.onboarded)
     window.localStorage.removeItem(sessionKeys.activeCompanyId)
     window.location.reload()
+  }
+  const complete = () => {
+    if (!form.name.trim() || !form.chamber.trim() || !form.vat.trim() || !form.email.includes('@')) {
+      setError('Vul minimaal bedrijfsnaam, KvK, BTW en geldig e-mailadres in.')
+      return
+    }
+
+    onComplete(form)
   }
 
   return (
@@ -1607,11 +1649,16 @@ function OnboardingScreen({ onComplete }: { onComplete: () => void }) {
           </div>
         </div>
         <form className="setup-form">
-          <label>Bedrijfsnaam<input defaultValue="Muldersign" /></label>
-          <label>KvK-nummer<input defaultValue="88373630" /></label>
-          <label>BTW-nummer<input defaultValue="NL004592528B88" /></label>
-          <label>Startpakket<select defaultValue="Brenqo Start"><option>Brenqo Start</option><option>Brenqo ZZP</option><option>Brenqo MKB</option><option>Brenqo Enterprise</option></select></label>
-          <button type="button" className="primary" onClick={onComplete}>Dashboard openen <ArrowRight size={18} /></button>
+          {error && <p className="form-error">{error}</p>}
+          <label>Bedrijfsnaam<input value={form.name} onChange={(event) => update('name', event.target.value)} /></label>
+          <label>KvK-nummer<input value={form.chamber} onChange={(event) => update('chamber', event.target.value)} /></label>
+          <label>BTW-nummer<input value={form.vat} onChange={(event) => update('vat', event.target.value)} /></label>
+          <label>E-mail<input value={form.email} onChange={(event) => update('email', event.target.value)} /></label>
+          <label>Adres<input value={form.address} onChange={(event) => update('address', event.target.value)} /></label>
+          <label>Postcode<input value={form.postalCode} onChange={(event) => update('postalCode', event.target.value)} /></label>
+          <label>Plaats<input value={form.city} onChange={(event) => update('city', event.target.value)} /></label>
+          <label>Startpakket<select value={form.plan} onChange={(event) => update('plan', event.target.value)}><option>Brenqo Start</option><option>Brenqo ZZP</option><option>Brenqo MKB</option><option>Brenqo Enterprise</option></select></label>
+          <button type="button" className="primary" onClick={complete}>Dashboard openen <ArrowRight size={18} /></button>
           <button type="button" className="ghost full" onClick={resetDemo}>Demo opnieuw starten</button>
         </form>
       </section>
@@ -2026,6 +2073,7 @@ function InvoiceDetail({
   invoice,
   customers,
   company,
+  settings,
   onBack,
   onEdit,
   onDuplicate,
@@ -2035,6 +2083,7 @@ function InvoiceDetail({
   invoice: Invoice
   customers: Customer[]
   company: Company
+  settings: CompanySettings
   onBack: () => void
   onEdit: () => void
   onDuplicate: () => void
@@ -2044,7 +2093,7 @@ function InvoiceDetail({
   const totals = calculateTotals(invoice.items)
   const customer = customers.find((record) => record.id === invoice.customerId)
   const download = () => downloadHtml(
-    `factuur-${invoice.number}.html`,
+    safeDocumentFilename('factuur', invoice.number),
     createPrintableDocumentHtml({
       type: 'invoice',
       number: invoice.number,
@@ -2058,6 +2107,8 @@ function InvoiceDetail({
       companyIban: company.iban,
       companyBic: company.bic,
       companyLogoUrl: company.logoUrl,
+      paymentReference: `${settings.paymentReferencePrefix} ${invoice.number}`,
+      footerNote: settings.documentFooter,
       customerName: customer?.name ?? 'Onbekende klant',
       customerAddress: customer ? `${customer.address}, ${customer.postalCode} ${customer.city}` : '',
       date: invoice.date,
@@ -2103,8 +2154,8 @@ function InvoiceDetail({
           <span>BTW<strong>{eur.format(totals.vatTotal)}</strong></span>
           <span className="summary-total">Totaal<strong>{eur.format(totals.total)}</strong></span>
         </div>
-        <button className="primary full" onClick={() => window.print()}>Printen</button>
-        <button className="ghost full" onClick={download}><Download size={17} /> Download HTML</button>
+        <button className="primary full" onClick={() => window.print()}>Print/PDF</button>
+        <button className="ghost full" onClick={download}><Download size={17} /> Download document</button>
       </aside>
     </div>
   )
@@ -2282,6 +2333,7 @@ function QuoteDetail({
   quote,
   customers,
   company,
+  settings,
   onBack,
   onEdit,
   onDuplicate,
@@ -2292,6 +2344,7 @@ function QuoteDetail({
   quote: Quote
   customers: Customer[]
   company: Company
+  settings: CompanySettings
   onBack: () => void
   onEdit: () => void
   onDuplicate: () => void
@@ -2302,7 +2355,7 @@ function QuoteDetail({
   const totals = calculateTotals(quote.items)
   const customer = customers.find((record) => record.id === quote.customerId)
   const download = () => downloadHtml(
-    `offerte-${quote.number}.html`,
+    safeDocumentFilename('offerte', quote.number),
     createPrintableDocumentHtml({
       type: 'quote',
       number: quote.number,
@@ -2316,6 +2369,8 @@ function QuoteDetail({
       companyIban: company.iban,
       companyBic: company.bic,
       companyLogoUrl: company.logoUrl,
+      paymentReference: `${settings.paymentReferencePrefix} ${quote.number}`,
+      footerNote: settings.documentFooter,
       customerName: customer?.name ?? 'Onbekende klant',
       customerAddress: customer ? `${customer.address}, ${customer.postalCode} ${customer.city}` : '',
       date: todayIso(),
@@ -2350,8 +2405,8 @@ function QuoteDetail({
             </button>
           ))}
           <button className="primary" onClick={() => onConvert(quote)}>Omzetten naar factuur</button>
-          <button className="ghost" onClick={() => window.print()}>Printen</button>
-          <button className="ghost" onClick={download}><Download size={17} /> Download HTML</button>
+          <button className="ghost" onClick={() => window.print()}>Print/PDF</button>
+          <button className="ghost" onClick={download}><Download size={17} /> Download document</button>
           <button className="ghost danger" onClick={onDelete}><Trash2 size={17} /> Verwijderen</button>
         </div>
       </section>
@@ -2554,11 +2609,13 @@ function Products({
 function Roles({
   members,
   canManage,
+  invitePreview,
   onInvite,
   onRoleChange,
 }: {
   members: TeamMember[]
   canManage: boolean
+  invitePreview: { subject: string; body: string; link: string } | null
   onInvite: (member: Pick<TeamMember, 'name' | 'email' | 'role'>) => void
   onRoleChange: (memberId: string, role: CompanyRole) => void
 }) {
@@ -2613,6 +2670,15 @@ function Roles({
           <label>Rol<select value={role} onChange={(event) => setRole(event.target.value as CompanyRole)}><option>Beheerder</option><option>Financieel medewerker</option><option>Lezer</option></select></label>
         </div>
         <button className="primary" disabled={!canManage} onClick={invite}>Uitnodiging klaarzetten</button>
+        {invitePreview && (
+          <div className="invite-preview">
+            <span>Uitnodigingslink</span>
+            <strong>{invitePreview.subject}</strong>
+            <input readOnly value={invitePreview.link} />
+            <textarea readOnly value={invitePreview.body} />
+            <button className="ghost" onClick={() => void navigator.clipboard?.writeText(invitePreview.body)}>Conceptmail kopieren</button>
+          </div>
+        )}
       </section>
       <SettingsBlock icon={<ShieldCheck />} title="RBAC-principe" text="Elke actie wordt straks gecontroleerd op user_id, company_id en rol." />
       <SettingsBlock icon={<Users />} title="Teamstructuur" text="Een gebruiker kan meerdere bedrijven beheren met per bedrijf een andere rol." />
@@ -2712,6 +2778,8 @@ function SettingsPage({
           <label>Betalingstermijn<input type="number" value={form.paymentTermDays} onChange={(event) => update('paymentTermDays', Number(event.target.value))} /></label>
           <label>Factuurprefix<input value={form.invoicePrefix} onChange={(event) => update('invoicePrefix', event.target.value)} /></label>
           <label>Offerteprefix<input value={form.quotePrefix} onChange={(event) => update('quotePrefix', event.target.value)} /></label>
+          <label>Betalingskenmerk<input value={form.paymentReferencePrefix} onChange={(event) => update('paymentReferencePrefix', event.target.value)} /></label>
+          <label className="span-2">Documentvoet<textarea value={form.documentFooter} onChange={(event) => update('documentFooter', event.target.value)} /></label>
         </div>
         <button className="primary" onClick={() => onSaveSettings(form)}>Instellingen opslaan</button>
       </section>
@@ -2821,7 +2889,15 @@ function buildMonthlyInvoiceData(sourceInvoices: Invoice[]) {
 }
 
 function defaultSettingsFor(companyId: string): CompanySettings {
-  return { companyId, defaultVat: 21, paymentTermDays: 14, invoicePrefix: '2026', quotePrefix: 'OFF-2026' }
+  return {
+    companyId,
+    defaultVat: 21,
+    paymentTermDays: 14,
+    invoicePrefix: '2026',
+    quotePrefix: 'OFF-2026',
+    paymentReferencePrefix: 'Factuur',
+    documentFooter: 'Bedankt voor de samenwerking. Vragen? Reageer op deze factuurmail.',
+  }
 }
 
 function downloadHtml(filename: string, html: string) {

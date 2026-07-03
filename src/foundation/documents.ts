@@ -13,6 +13,8 @@ export type PrintableDocument = {
   companyIban?: string
   companyBic?: string
   companyLogoUrl?: string
+  paymentReference?: string
+  footerNote?: string
   customerName: string
   customerAddress: string
   date: string
@@ -36,13 +38,13 @@ export function createPrintableDocumentHtml(document: PrintableDocument) {
   <title>${label} ${escapeHtml(document.number)} - Brenqo</title>
   <style>
     body { margin: 0; font-family: Inter, Arial, sans-serif; color: #101828; background: #f5f7fb; }
-    main { max-width: 880px; margin: 32px auto; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 40px; }
+    main { max-width: 900px; margin: 32px auto; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 44px; }
     header { display: flex; justify-content: space-between; gap: 24px; border-bottom: 1px solid #e5e7eb; padding-bottom: 28px; }
     .company { text-align: right; }
     .company img { width: 96px; height: auto; object-fit: contain; margin-bottom: 12px; }
-    h1 { margin: 0 0 8px; font-size: 36px; }
+    h1 { margin: 18px 0 8px; font-size: 38px; letter-spacing: 0; }
     h2 { margin: 0 0 8px; font-size: 18px; }
-    p, span { color: #667085; }
+    p, span { color: #667085; line-height: 1.55; }
     table { width: 100%; border-collapse: collapse; margin: 32px 0; }
     th { text-align: left; color: #667085; font-size: 12px; text-transform: uppercase; }
     th, td { padding: 14px 10px; border-bottom: 1px solid #e5e7eb; }
@@ -51,7 +53,9 @@ export function createPrintableDocumentHtml(document: PrintableDocument) {
     .summary div { display: flex; justify-content: space-between; }
     .total { font-size: 22px; font-weight: 800; color: #101828; }
     .badge { display: inline-flex; padding: 8px 12px; border-radius: 7px; background: #e8f1ff; color: #1877f2; font-weight: 700; }
-    @media print { body { background: #fff; } main { margin: 0; border: 0; } }
+    .payment { margin-top: 32px; padding: 18px; border-radius: 8px; background: #f8fafc; border: 1px solid #e5e7eb; }
+    footer { margin-top: 28px; border-top: 1px solid #e5e7eb; padding-top: 18px; }
+    @media print { body { background: #fff; } main { margin: 0; border: 0; box-shadow: none; } }
   </style>
 </head>
 <body>
@@ -86,8 +90,12 @@ export function createPrintableDocumentHtml(document: PrintableDocument) {
       <div><span>BTW</span><strong>${formatEuro(totals.vatTotal)}</strong></div>
       <div class="total"><span>Totaal</span><strong>${formatEuro(totals.total)}</strong></div>
     </section>
+    <section class="payment">
+      <h2>Betaling</h2>
+      <p>IBAN: ${escapeHtml(document.companyIban ?? '-')} ${document.companyBic ? `<br>BIC: ${escapeHtml(document.companyBic)}` : ''}${document.paymentReference ? `<br>Kenmerk: ${escapeHtml(document.paymentReference)}` : ''}</p>
+    </section>
     <footer>
-      <p>Betaling: ${escapeHtml(document.companyIban ?? '-')} ${document.companyBic ? `- BIC ${escapeHtml(document.companyBic)}` : ''}</p>
+      <p>${escapeHtml(document.footerNote ?? 'Bedankt voor je vertrouwen.')}</p>
     </footer>
   </main>
 </body>
