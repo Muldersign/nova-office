@@ -1422,7 +1422,7 @@ function AuthScreen({ onLogin }: { onLogin: () => Promise<void> }) {
               <div className="phone-top"><strong>Brenqo</strong><Menu size={18} /></div>
               <span className="pill compact-pill">Alles onder controle.</span>
               <h2>Jouw administratie, maar dan <span>makkelijk</span></h2>
-              <button className="dark-button full" onClick={onLogin}>Gratis proberen</button>
+              <button className="dark-button full" onClick={() => openAuth('register')}>Gratis proberen</button>
               <PreviewMetric title="Omzet" value="€ 125.430" tone="blue" />
               <PreviewMetric title="Openstaand" value="€ 18.640" />
             </div>
