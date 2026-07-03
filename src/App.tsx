@@ -38,7 +38,7 @@ import { foundationRules, foundationSchema, tenantScopedTables } from './foundat
 import { createPrintableDocumentHtml } from './foundation/documents'
 import { isUsageWithinPlan, planByName, planCatalog, usagePercentage, type PlanLimitKey, type PlanName, type PlanUsage } from './foundation/subscription'
 import { createDocumentEmail, createInviteEmail, createInviteToken, safeDocumentFilename } from './foundation/workflows'
-import { submitAuth, type AuthMode } from './services/authService'
+import { submitAuth, updatePassword, type AuthMode } from './services/authService'
 import {
   deleteRemoteRecord,
   createRemoteTeamInvite,
@@ -51,11 +51,13 @@ import {
   upsertRemoteSettings,
 } from './services/remoteWorkspace'
 import { getSupabaseClient } from './services/supabaseClient'
+import { downloadServerPdf } from './services/pdfService'
 import { createWorkspaceStore } from './services/workspaceStore'
 import './App.css'
 
 type Screen =
   | 'login'
+  | 'password-reset'
   | 'onboarding'
   | 'dashboard'
   | 'customers'
@@ -597,9 +599,23 @@ function readPendingInviteToken() {
   return window.localStorage.getItem(sessionKeys.pendingInviteToken) ?? ''
 }
 
+function isPasswordRecoveryUrl() {
+  if (typeof window === 'undefined') {
+    return false
+  }
+
+  const query = new URLSearchParams(window.location.search)
+  const hash = new URLSearchParams(window.location.hash.replace(/^#/, ''))
+  return query.get('reset') === '1' || query.get('type') === 'recovery' || hash.get('type') === 'recovery'
+}
+
 function App() {
   const [workspaceLoading, setWorkspaceLoading] = useState(false)
   const [screen, setScreen] = useState<Screen>(() => {
+    if (isPasswordRecoveryUrl()) {
+      return 'password-reset'
+    }
+
     if (!readSessionFlag(sessionKeys.authenticated)) {
       return 'login'
     }
@@ -822,6 +838,10 @@ function App() {
 
   if (screen === 'login') {
     return <AuthScreen pendingInviteToken={pendingInviteToken} onLogin={completeLogin} />
+  }
+
+  if (screen === 'password-reset') {
+    return <PasswordResetScreen onDone={() => setScreen('login')} />
   }
 
   if (workspaceLoading) {
@@ -1373,6 +1393,49 @@ function WorkspaceLoading() {
           <strong>Live database verbonden</strong>
           <p>Na het laden opent automatisch je dashboard.</p>
         </div>
+      </section>
+    </div>
+  )
+}
+
+function PasswordResetScreen({ onDone }: { onDone: () => void }) {
+  const [password, setPassword] = useState('')
+  const [confirmPassword, setConfirmPassword] = useState('')
+  const [message, setMessage] = useState('')
+  const [busy, setBusy] = useState(false)
+
+  const submit = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    if (password !== confirmPassword) {
+      setMessage('De wachtwoorden zijn niet gelijk.')
+      return
+    }
+
+    setBusy(true)
+    const result = await updatePassword(getSupabaseClient(), password)
+    setBusy(false)
+    setMessage(result.message)
+    if (result.ok) {
+      window.history.replaceState({}, '', window.location.pathname)
+      setTimeout(onDone, 900)
+    }
+  }
+
+  return (
+    <div className="auth-page reset-page">
+      <section className="auth-section reset-card">
+        <div>
+          <Brand />
+          <span className="pill">Wachtwoord herstellen</span>
+          <h2>Kies een nieuw wachtwoord</h2>
+          <p>Je resetlink is geopend in Brenqo. Stel hieronder je nieuwe wachtwoord in en log daarna opnieuw in.</p>
+        </div>
+        <form className="auth-form" onSubmit={submit}>
+          <label>Nieuw wachtwoord<input value={password} onChange={(event) => setPassword(event.target.value)} type="password" placeholder="Minimaal 8 tekens" /></label>
+          <label>Herhaal wachtwoord<input value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} type="password" placeholder="Nogmaals je wachtwoord" /></label>
+          <button className="dark-button full" disabled={busy} type="submit">{busy ? 'Opslaan...' : 'Wachtwoord opslaan'}</button>
+          {message && <p className={message.includes('bijgewerkt') ? 'success-note' : 'form-error'}>{message}</p>}
+        </form>
       </section>
     </div>
   )
@@ -2165,9 +2228,7 @@ function InvoiceDetail({
     total: eur.format(invoice.amount),
     dueOrValidDate: invoice.due,
   })
-  const download = () => downloadHtml(
-    safeDocumentFilename('factuur', invoice.number),
-    createPrintableDocumentHtml({
+  const printableDocument = {
       type: 'invoice',
       number: invoice.number,
       status: invoice.status,
@@ -2187,8 +2248,19 @@ function InvoiceDetail({
       date: invoice.date,
       dueDate: invoice.due,
       lines: invoice.items,
-    }),
+  } as const
+  const download = () => downloadHtml(
+    safeDocumentFilename('factuur', invoice.number),
+    createPrintableDocumentHtml(printableDocument),
   )
+  const downloadPdf = async () => {
+    await downloadServerPdf({
+      ...printableDocument,
+      title: `Factuur ${invoice.number}`,
+      filename: safeDocumentFilename('factuur', invoice.number, 'pdf'),
+      total: eur.format(invoice.amount),
+    })
+  }
 
   return (
     <div className="invoice-builder">
@@ -2227,7 +2299,8 @@ function InvoiceDetail({
           <span>BTW<strong>{eur.format(totals.vatTotal)}</strong></span>
           <span className="summary-total">Totaal<strong>{eur.format(totals.total)}</strong></span>
         </div>
-        <button className="primary full" onClick={() => window.print()}>Print/PDF</button>
+        <button className="primary full" onClick={() => { void downloadPdf().catch(() => download()) }}>Download PDF</button>
+        <button className="ghost full" onClick={() => window.print()}>Printen</button>
         <button className="ghost full" onClick={download}><Download size={17} /> Download document</button>
         <button className="ghost full" onClick={() => void navigator.clipboard?.writeText(`${documentEmail.subject}\n\n${documentEmail.body}`)}>Kopieer verzendmail</button>
       </aside>
@@ -2436,9 +2509,7 @@ function QuoteDetail({
     total: eur.format(quote.amount),
     dueOrValidDate: quote.validUntil,
   })
-  const download = () => downloadHtml(
-    safeDocumentFilename('offerte', quote.number),
-    createPrintableDocumentHtml({
+  const printableDocument = {
       type: 'quote',
       number: quote.number,
       status: quote.status,
@@ -2458,8 +2529,19 @@ function QuoteDetail({
       date: todayIso(),
       validUntil: quote.validUntil,
       lines: quote.items,
-    }),
+  } as const
+  const download = () => downloadHtml(
+    safeDocumentFilename('offerte', quote.number),
+    createPrintableDocumentHtml(printableDocument),
   )
+  const downloadPdf = async () => {
+    await downloadServerPdf({
+      ...printableDocument,
+      title: `Offerte ${quote.number}`,
+      filename: safeDocumentFilename('offerte', quote.number, 'pdf'),
+      total: eur.format(quote.amount),
+    })
+  }
 
   return (
     <div className="invoice-builder">
@@ -2487,7 +2569,8 @@ function QuoteDetail({
             </button>
           ))}
           <button className="primary" onClick={() => onConvert(quote)}>Omzetten naar factuur</button>
-          <button className="ghost" onClick={() => window.print()}>Print/PDF</button>
+          <button className="primary" onClick={() => { void downloadPdf().catch(() => download()) }}>Download PDF</button>
+          <button className="ghost" onClick={() => window.print()}>Printen</button>
           <button className="ghost" onClick={download}><Download size={17} /> Download document</button>
           <button className="ghost" onClick={() => void navigator.clipboard?.writeText(`${documentEmail.subject}\n\n${documentEmail.body}`)}>Kopieer verzendmail</button>
           <button className="ghost danger" onClick={onDelete}><Trash2 size={17} /> Verwijderen</button>
@@ -3167,6 +3250,7 @@ function quoteMatches(quote: Quote, sourceCustomers: Customer[], searchTerm: str
 function titleFor(screen: Screen) {
   const titles: Record<Screen, string> = {
     login: 'Inloggen',
+    'password-reset': 'Wachtwoord herstellen',
     onboarding: 'Onboarding',
     dashboard: 'Dashboard',
     customers: 'Klanten',

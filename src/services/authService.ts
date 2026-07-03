@@ -43,7 +43,9 @@ export async function submitAuth(
   }
 
   if (mode === 'forgot') {
-    const { error } = await client.auth.resetPasswordForEmail(input.email, { redirectTo: input.redirectTo })
+    const resetUrl = new URL(input.redirectTo)
+    resetUrl.searchParams.set('reset', '1')
+    const { error } = await client.auth.resetPasswordForEmail(input.email, { redirectTo: resetUrl.toString() })
     return error ? { ok: false, message: error.message } : { ok: true, message: 'Controleer je inbox voor de herstellink.' }
   }
 
@@ -114,4 +116,21 @@ export async function acceptInviteWorkspace(client: SupabaseClient, inviteToken:
   }
 
   return { ok: true, message: 'Uitnodiging geaccepteerd.' }
+}
+
+export async function updatePassword(client: SupabaseClient | null, password: string) {
+  if (password.length < 8) {
+    return { ok: false, message: 'Gebruik minimaal 8 tekens voor je nieuwe wachtwoord.' }
+  }
+
+  if (!client) {
+    return { ok: true, message: 'Demo-modus: wachtwoord lokaal geaccepteerd.' }
+  }
+
+  const { error } = await client.auth.updateUser({ password })
+  if (error) {
+    return { ok: false, message: error.message }
+  }
+
+  return { ok: true, message: 'Je wachtwoord is bijgewerkt. Je kunt nu inloggen.' }
 }

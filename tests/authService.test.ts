@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { submitAuth, validateAuthInput } from '../src/services/authService.ts'
+import { submitAuth, updatePassword, validateAuthInput } from '../src/services/authService.ts'
 
 test('auth validation rejects invalid email', () => {
   assert.deepEqual(validateAuthInput('login', 'geen-email', 'wachtwoord'), {
@@ -18,6 +18,27 @@ test('auth validation enforces password length', () => {
 
 test('auth validation accepts forgot password without password', () => {
   assert.equal(validateAuthInput('forgot', 'info@brenqo.nl', '').ok, true)
+})
+
+test('forgot password sends users back to Brenqo reset screen', async () => {
+  let redirectTo = ''
+  const result = await submitAuth({
+    auth: {
+      resetPasswordForEmail: async (_email: string, options: { redirectTo: string }) => {
+        redirectTo = options.redirectTo
+        return { error: null }
+      },
+    },
+  } as never, 'forgot', {
+    email: 'test@brenqo.nl',
+    password: '',
+    name: '',
+    companyName: '',
+    redirectTo: 'https://brenqo.nl/',
+  })
+
+  assert.equal(result.ok, true)
+  assert.equal(redirectTo, 'https://brenqo.nl/?reset=1')
 })
 
 test('registration without session asks for email confirmation without opening app', async () => {
@@ -83,4 +104,21 @@ test('registration with invite accepts invite instead of creating workspace', as
   assert.equal(result.ok, true)
   assert.equal(result.openApp, true)
   assert.deepEqual(calls, ['accept_company_invite'])
+})
+
+test('password update validates length and calls Supabase', async () => {
+  assert.equal((await updatePassword(null, 'kort')).ok, false)
+
+  const calls: string[] = []
+  const result = await updatePassword({
+    auth: {
+      updateUser: async (input: { password: string }) => {
+        calls.push(input.password)
+        return { error: null }
+      },
+    },
+  } as never, 'nieuw-wachtwoord')
+
+  assert.equal(result.ok, true)
+  assert.deepEqual(calls, ['nieuw-wachtwoord'])
 })
