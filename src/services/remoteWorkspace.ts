@@ -66,7 +66,7 @@ export async function loadRemoteWorkspace(client: SupabaseClient): Promise<Remot
 
 export async function upsertRemoteCustomer(client: SupabaseClient, customer: Record<string, unknown>) {
   if (!isUuid(String(customer.id)) || !isUuid(String(customer.companyId))) return
-  await client.from('customers').upsert({
+  const { error } = await client.from('customers').upsert({
     id: customer.id,
     company_id: customer.companyId,
     company_name: customer.name,
@@ -81,11 +81,12 @@ export async function upsertRemoteCustomer(client: SupabaseClient, customer: Rec
     revenue: customer.revenue,
     updated_at: new Date().toISOString(),
   })
+  throwIfRemoteError(error)
 }
 
 export async function upsertRemoteProduct(client: SupabaseClient, product: Record<string, unknown>) {
   if (!isUuid(String(product.id)) || !isUuid(String(product.companyId))) return
-  await client.from('products').upsert({
+  const { error } = await client.from('products').upsert({
     id: product.id,
     company_id: product.companyId,
     name: product.name,
@@ -95,11 +96,12 @@ export async function upsertRemoteProduct(client: SupabaseClient, product: Recor
     category: product.category,
     updated_at: new Date().toISOString(),
   })
+  throwIfRemoteError(error)
 }
 
 export async function upsertRemoteCompany(client: SupabaseClient, company: Record<string, unknown>) {
   if (!isUuid(String(company.id))) return
-  await client.from('companies').upsert({
+  const { error } = await client.from('companies').upsert({
     id: company.id,
     name: company.name,
     kvk_number: company.chamber,
@@ -114,11 +116,12 @@ export async function upsertRemoteCompany(client: SupabaseClient, company: Recor
     logo_url: company.logoUrl,
     plan: company.plan,
   })
+  throwIfRemoteError(error)
 }
 
 export async function upsertRemoteSettings(client: SupabaseClient, settings: Record<string, unknown>) {
   if (!isUuid(String(settings.companyId))) return
-  await client.from('company_settings').upsert({
+  const { error } = await client.from('company_settings').upsert({
     company_id: settings.companyId,
     default_vat_rate: settings.defaultVat,
     payment_term_days: settings.paymentTermDays,
@@ -126,11 +129,12 @@ export async function upsertRemoteSettings(client: SupabaseClient, settings: Rec
     quote_prefix: settings.quotePrefix,
     updated_at: new Date().toISOString(),
   })
+  throwIfRemoteError(error)
 }
 
 export async function upsertRemoteInvoice(client: SupabaseClient, invoice: DocumentRecord) {
   if (!isUuid(invoice.id) || !isUuid(invoice.companyId) || !isUuid(invoice.customerId)) return
-  await client.from('invoices').upsert({
+  const { error } = await client.from('invoices').upsert({
     id: invoice.id,
     company_id: invoice.companyId,
     customer_id: invoice.customerId,
@@ -143,12 +147,13 @@ export async function upsertRemoteInvoice(client: SupabaseClient, invoice: Docum
     total: invoice.amount,
     updated_at: new Date().toISOString(),
   })
+  throwIfRemoteError(error)
   await replaceLineItems(client, 'invoice_items', invoice.id, invoice.companyId, invoice.items)
 }
 
 export async function upsertRemoteQuote(client: SupabaseClient, quote: DocumentRecord) {
   if (!isUuid(quote.id) || !isUuid(quote.companyId) || !isUuid(quote.customerId)) return
-  await client.from('quotes').upsert({
+  const { error } = await client.from('quotes').upsert({
     id: quote.id,
     company_id: quote.companyId,
     customer_id: quote.customerId,
@@ -160,18 +165,21 @@ export async function upsertRemoteQuote(client: SupabaseClient, quote: DocumentR
     total: quote.amount,
     updated_at: new Date().toISOString(),
   })
+  throwIfRemoteError(error)
   await replaceLineItems(client, 'quote_items', quote.id, quote.companyId, quote.items)
 }
 
 export async function deleteRemoteRecord(client: SupabaseClient, table: string, id: string) {
   if (!isUuid(id)) return
-  await client.from(table).delete().eq('id', id)
+  const { error } = await client.from(table).delete().eq('id', id)
+  throwIfRemoteError(error)
 }
 
 async function replaceLineItems(client: SupabaseClient, table: 'invoice_items' | 'quote_items', parentId: string, companyId: string, items: LineItem[]) {
-  await client.from(table).delete().eq('parent_id', parentId)
+  const deleted = await client.from(table).delete().eq('parent_id', parentId)
+  throwIfRemoteError(deleted.error)
   if (!items.length) return
-  await client.from(table).insert(items.map((item) => ({
+  const inserted = await client.from(table).insert(items.map((item) => ({
     company_id: companyId,
     parent_id: parentId,
     description: item.description,
@@ -179,6 +187,13 @@ async function replaceLineItems(client: SupabaseClient, table: 'invoice_items' |
     unit_price: item.price,
     vat_rate: item.vat,
   })))
+  throwIfRemoteError(inserted.error)
+}
+
+function throwIfRemoteError(error: { message?: string } | null) {
+  if (error) {
+    throw new Error(error.message ?? 'Supabase actie is mislukt.')
+  }
 }
 
 function toCompany(row: Record<string, unknown>) {

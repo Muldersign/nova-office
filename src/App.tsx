@@ -608,6 +608,7 @@ function App() {
   const [editingCustomerId, setEditingCustomerId] = useState<string | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [globalSearch, setGlobalSearch] = useState('')
+  const [syncMessage, setSyncMessage] = useState('')
   const [invoiceRows, setInvoiceRows] = useState([
     { description: 'Adviespakket Groei', quantity: 1, price: 1250, vat: 21 },
     { description: 'Maandelijkse support', quantity: 1, price: 395, vat: 21 },
@@ -640,10 +641,10 @@ function App() {
   const filteredQuotes = companyQuotes.filter((quote) => quoteMatches(quote, companyCustomers, globalSearch))
   const activeCompany = companyRecords.find((company) => company.id === activeCompanyId) ?? companyRecords[0] ?? companies[0]
   const activeSettings = settingsRecords.find((settings) => settings.companyId === activeCompanyId) ?? defaultSettingsFor(activeCompanyId)
-  const currentCustomer = companyCustomers.find((customer) => customer.id === selectedCustomer) ?? companyCustomers[0] ?? customers[0]
+  const currentCustomer = companyCustomers.find((customer) => customer.id === selectedCustomer) ?? companyCustomers[0]
   const currentInvoice = companyInvoices.find((invoice) => invoice.id === selectedInvoice) ?? companyInvoices[0]
   const currentQuote = companyQuotes.find((quote) => quote.id === selectedQuote) ?? companyQuotes[0]
-  const invoiceTotal = invoiceRows.reduce((sum, row) => sum + row.quantity * row.price * (1 + row.vat / 100), 0)
+  const invoiceTotal = calculateTotals(invoiceRows).total
   const nextInvoiceNumber = nextDocumentNumber(companyInvoices.map((invoice) => invoice.number), activeSettings.invoicePrefix)
   const nextQuoteNumber = nextDocumentNumber(companyQuotes.map((quote) => quote.number), activeSettings.quotePrefix, 3)
 
@@ -807,24 +808,40 @@ function App() {
     ])
   }
 
-  const saveCustomer = (customer: Customer) => {
+  const syncRemote = async (action: () => Promise<void>, success: string) => {
+    const client = getSupabaseClient()
+    if (!client) {
+      setSyncMessage('')
+      return true
+    }
+
+    setSyncMessage('Opslaan naar Supabase...')
+    try {
+      await action()
+      setSyncMessage(success)
+      return true
+    } catch (error) {
+      setSyncMessage(error instanceof Error ? `Supabase fout: ${error.message}` : 'Supabase fout: actie niet opgeslagen.')
+      return false
+    }
+  }
+
+  const saveCustomer = async (customer: Customer) => {
     const exists = customerRecords.some((record) => record.id === customer.id)
     setCustomerRecords((records) => {
       return exists ? records.map((record) => (record.id === customer.id ? customer : record)) : [customer, ...records]
     })
-    const client = getSupabaseClient()
-    if (client) void upsertRemoteCustomer(client, customer)
+    await syncRemote((async () => upsertRemoteCustomer(getSupabaseClient()!, customer)), 'Klant opgeslagen.')
     appendAudit(customer.companyId, `${exists ? 'Klant bijgewerkt' : 'Klant toegevoegd'}: ${customer.name}`, 'customer', customer.id)
     setSelectedCustomer(customer.id)
     setEditingCustomerId(null)
     navigate('customer-detail')
   }
 
-  const saveCompany = (company: Company) => {
+  const saveCompany = async (company: Company) => {
     const exists = companyRecords.some((record) => record.id === company.id)
     setCompanyRecords((records) => (exists ? records.map((record) => (record.id === company.id ? company : record)) : [company, ...records]))
-    const client = getSupabaseClient()
-    if (client) void upsertRemoteCompany(client, company)
+    await syncRemote((async () => upsertRemoteCompany(getSupabaseClient()!, company)), 'Bedrijf opgeslagen.')
     appendAudit(company.id, `${exists ? 'Bedrijf bijgewerkt' : 'Bedrijf toegevoegd'}: ${company.name}`, 'company', company.id)
     setEditingCompanyId(null)
     setSettingsRecords((records) => records.some((record) => record.companyId === company.id) ? records : [defaultSettingsFor(company.id), ...records])
@@ -832,39 +849,35 @@ function App() {
     navigate('companies')
   }
 
-  const saveInvoice = (invoice: Invoice) => {
+  const saveInvoice = async (invoice: Invoice) => {
     const exists = invoiceRecords.some((record) => record.id === invoice.id)
     setInvoiceRecords((records) => (exists ? records.map((record) => (record.id === invoice.id ? invoice : record)) : [invoice, ...records]))
-    const client = getSupabaseClient()
-    if (client) void upsertRemoteInvoice(client, invoice)
+    await syncRemote((async () => upsertRemoteInvoice(getSupabaseClient()!, invoice)), 'Factuur opgeslagen.')
     appendAudit(invoice.companyId, `Factuur ${invoice.number} ${exists ? 'bijgewerkt' : 'aangemaakt'} voor ${nameFor(invoice.customerId, customerRecords)}`, 'invoice', invoice.id)
     setSelectedInvoice(invoice.id)
     navigate('invoice-detail')
   }
 
-  const saveQuote = (quote: Quote) => {
+  const saveQuote = async (quote: Quote) => {
     const exists = quoteRecords.some((record) => record.id === quote.id)
     setQuoteRecords((records) => (exists ? records.map((record) => (record.id === quote.id ? quote : record)) : [quote, ...records]))
-    const client = getSupabaseClient()
-    if (client) void upsertRemoteQuote(client, quote)
+    await syncRemote((async () => upsertRemoteQuote(getSupabaseClient()!, quote)), 'Offerte opgeslagen.')
     appendAudit(quote.companyId, `Offerte ${quote.number} ${exists ? 'bijgewerkt' : 'aangemaakt'} voor ${nameFor(quote.customerId, customerRecords)}`, 'quote', quote.id)
     setSelectedQuote(quote.id)
     navigate('quote-detail')
   }
 
-  const deleteInvoice = (invoice: Invoice) => {
+  const deleteInvoice = async (invoice: Invoice) => {
     setInvoiceRecords((records) => records.filter((record) => record.id !== invoice.id))
-    const client = getSupabaseClient()
-    if (client) void deleteRemoteRecord(client, 'invoices', invoice.id)
+    await syncRemote((async () => deleteRemoteRecord(getSupabaseClient()!, 'invoices', invoice.id)), 'Factuur verwijderd.')
     appendAudit(invoice.companyId, `Factuur ${invoice.number} verwijderd`, 'invoice', invoice.id)
     setSelectedInvoice(companyInvoices.find((record) => record.id !== invoice.id)?.id ?? invoices[0].id)
     navigate('invoices')
   }
 
-  const deleteQuote = (quote: Quote) => {
+  const deleteQuote = async (quote: Quote) => {
     setQuoteRecords((records) => records.filter((record) => record.id !== quote.id))
-    const client = getSupabaseClient()
-    if (client) void deleteRemoteRecord(client, 'quotes', quote.id)
+    await syncRemote((async () => deleteRemoteRecord(getSupabaseClient()!, 'quotes', quote.id)), 'Offerte verwijderd.')
     appendAudit(quote.companyId, `Offerte ${quote.number} verwijderd`, 'quote', quote.id)
     setSelectedQuote(companyQuotes.find((record) => record.id !== quote.id)?.id ?? quotes[0].id)
     navigate('quotes')
@@ -894,54 +907,49 @@ function App() {
     appendAudit(activeCompanyId, 'Rol van teamlid bijgewerkt', 'company', memberId)
   }
 
-  const saveSettings = (settings: CompanySettings) => {
+  const saveSettings = async (settings: CompanySettings) => {
     setSettingsRecords((records) => (records.some((record) => record.companyId === settings.companyId)
       ? records.map((record) => (record.companyId === settings.companyId ? settings : record))
       : [settings, ...records]))
-    const client = getSupabaseClient()
-    if (client) void upsertRemoteSettings(client, settings)
+    await syncRemote((async () => upsertRemoteSettings(getSupabaseClient()!, settings)), 'Instellingen opgeslagen.')
     appendAudit(settings.companyId, 'Bedrijfsinstellingen bijgewerkt', 'settings', settings.companyId)
   }
 
-  const saveProduct = (product: Product) => {
+  const saveProduct = async (product: Product) => {
     const exists = productRecords.some((record) => record.id === product.id)
     setProductRecords((records) => (exists ? records.map((record) => (record.id === product.id ? product : record)) : [product, ...records]))
-    const client = getSupabaseClient()
-    if (client) void upsertRemoteProduct(client, product)
+    await syncRemote((async () => upsertRemoteProduct(getSupabaseClient()!, product)), 'Productregel opgeslagen.')
     appendAudit(product.companyId, `${exists ? 'Productregel bijgewerkt' : 'Productregel toegevoegd'}: ${product.name}`, 'settings', product.id)
   }
 
-  const deleteProduct = (productId: string) => {
+  const deleteProduct = async (productId: string) => {
     const product = productRecords.find((record) => record.id === productId)
     setProductRecords((records) => records.filter((record) => record.id !== productId))
-    const client = getSupabaseClient()
-    if (client) void deleteRemoteRecord(client, 'products', productId)
+    await syncRemote((async () => deleteRemoteRecord(getSupabaseClient()!, 'products', productId)), 'Productregel verwijderd.')
     if (product) {
       appendAudit(product.companyId, `Productregel verwijderd: ${product.name}`, 'settings', product.id)
     }
   }
 
-  const updateInvoiceStatus = (invoiceId: string, status: InvoiceStatus) => {
+  const updateInvoiceStatus = async (invoiceId: string, status: InvoiceStatus) => {
     const invoice = invoiceRecords.find((record) => record.id === invoiceId)
     setInvoiceRecords((records) => records.map((record) => (record.id === invoiceId ? { ...record, status } : record)))
     if (invoice) {
-      const client = getSupabaseClient()
-      if (client) void upsertRemoteInvoice(client, { ...invoice, status })
+      await syncRemote((async () => upsertRemoteInvoice(getSupabaseClient()!, { ...invoice, status })), 'Factuurstatus opgeslagen.')
       appendAudit(invoice.companyId, `Factuur ${invoice.number} gemarkeerd als ${status.toLowerCase()}`, 'invoice', invoice.id)
     }
   }
 
-  const updateQuoteStatus = (quoteId: string, status: QuoteStatus) => {
+  const updateQuoteStatus = async (quoteId: string, status: QuoteStatus) => {
     const quote = quoteRecords.find((record) => record.id === quoteId)
     setQuoteRecords((records) => records.map((record) => (record.id === quoteId ? { ...record, status } : record)))
     if (quote) {
-      const client = getSupabaseClient()
-      if (client) void upsertRemoteQuote(client, { ...quote, status })
+      await syncRemote((async () => upsertRemoteQuote(getSupabaseClient()!, { ...quote, status })), 'Offertestatus opgeslagen.')
       appendAudit(quote.companyId, `Offerte ${quote.number} gemarkeerd als ${status.toLowerCase()}`, 'quote', quote.id)
     }
   }
 
-  const convertQuoteToInvoice = (quote: Quote) => {
+  const convertQuoteToInvoice = async (quote: Quote) => {
     const invoice: Invoice = {
       id: createRecordId('inv'),
       companyId: quote.companyId,
@@ -954,9 +962,11 @@ function App() {
       status: 'Concept',
       items: quote.items,
     }
-    setQuoteRecords((records) => records.map((record) => (record.id === quote.id ? { ...record, status: 'Geaccepteerd' } : record)))
+    const acceptedQuote = { ...quote, status: 'Geaccepteerd' as QuoteStatus }
+    setQuoteRecords((records) => records.map((record) => (record.id === quote.id ? acceptedQuote : record)))
+    await syncRemote((async () => upsertRemoteQuote(getSupabaseClient()!, acceptedQuote)), 'Offerte omgezet.')
     appendAudit(quote.companyId, `Offerte ${quote.number} omgezet naar factuur ${invoice.number}`, 'quote', quote.id)
-    saveInvoice(invoice)
+    await saveInvoice(invoice)
   }
 
   const resetWorkspace = () => {
@@ -1049,6 +1059,9 @@ function App() {
             <button className="ghost" onClick={logout}>Uitloggen</button>
           </div>
         </header>
+        {syncMessage && (
+          <p className={syncMessage.startsWith('Supabase fout') ? 'form-error' : 'success-note'}>{syncMessage}</p>
+        )}
 
         <div className="module-tabs" aria-label="MVP modules">
           {(['dashboard', 'customers', 'invoices', 'quotes', 'products', 'companies', 'settings'] as Screen[]).map((module) => (
@@ -1089,7 +1102,7 @@ function App() {
             onSave={saveCustomer}
           />
         )}
-        {screen === 'customer-detail' && (
+        {screen === 'customer-detail' && currentCustomer && (
           <CustomerDetail
             customer={currentCustomer}
             invoices={companyInvoices}
@@ -1100,6 +1113,12 @@ function App() {
               navigate('customer-form')
             }}
           />
+        )}
+        {screen === 'customer-detail' && !currentCustomer && (
+          <section className="panel">
+            <PanelHeader title="Geen klant geselecteerd" action="Terug naar klanten" onAction={() => navigate('customers')} />
+            <p>Deze administratie heeft nog geen klant om te openen.</p>
+          </section>
         )}
         {screen === 'invoices' && (
           <Invoices
@@ -1913,6 +1932,16 @@ function InvoiceCreate({
     })
   }
 
+  if (customers.length === 0) {
+    return (
+      <section className="panel">
+        <button className="table-link" onClick={onBack}>Terug naar facturen</button>
+        <PanelHeader title="Maak eerst een klant aan" />
+        <p>Facturen hebben altijd een klant nodig. Voeg eerst een klant toe en maak daarna direct je eerste factuur.</p>
+      </section>
+    )
+  }
+
   return (
     <div className="invoice-builder">
       <section className="panel">
@@ -2168,6 +2197,16 @@ function QuoteCreate({
       validUntil,
       items: rows,
     })
+  }
+
+  if (customers.length === 0) {
+    return (
+      <section className="panel">
+        <button className="table-link" onClick={onBack}>Terug naar offertes</button>
+        <PanelHeader title="Maak eerst een klant aan" />
+        <p>Offertes hebben altijd een klant nodig. Voeg eerst een klant toe en maak daarna direct je eerste offerte.</p>
+      </section>
+    )
   }
 
   return (
