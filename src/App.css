@@ -305,6 +305,7 @@ button {
 .demo-kpi,
 .demo-chart,
 .demo-list {
+  min-width: 0;
   padding: 20px;
   border: 1px solid #e5e7eb;
   border-radius: 8px;
@@ -315,8 +316,10 @@ button {
 .demo-kpi strong {
   display: block;
   margin: 16px 0 6px;
-  font-size: 42px;
+  max-width: 100%;
+  font-size: clamp(30px, 3vw, 42px);
   line-height: 1;
+  white-space: nowrap;
 }
 
 .demo-chart {
