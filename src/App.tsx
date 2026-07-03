@@ -633,12 +633,7 @@ function requestedAuthMode(): AuthMode | null {
 }
 
 function authUrl(mode: AuthMode) {
-  const path = mode === 'register' ? '/register' : mode === 'forgot' ? '/forgot' : '/login'
-  if (typeof window !== 'undefined' && window.location.hostname === 'brenqo.nl') {
-    return `https://app.brenqo.nl${path}`
-  }
-
-  return path
+  return mode === 'register' ? '/register' : mode === 'forgot' ? '/forgot' : '/login'
 }
 
 function App() {
