@@ -36,14 +36,14 @@ Eerste administratie:
 Supabase is gekozen voor de volgende MVP-stap: echte auth + database. Maak lokaal een `.env` op basis van `.env.example`:
 
 ```bash
-VITE_SUPABASE_URL=
-VITE_SUPABASE_ANON_KEY=
+VITE_SUPABASE_URL=https://iwgdsinkprrfarrxrpik.supabase.co
+VITE_SUPABASE_ANON_KEY=<anon public key>
 VITE_APP_NAME=Brenqo
 VITE_APP_DOMAIN=https://brenqo.nl
 VITE_MAIL_FROM=send@brenqo.nl
 ```
 
-Zet geen wachtwoorden, SMTP-passwords of service-role keys in Git. Die horen later in Cloud86/Plesk of Supabase secrets.
+Het gekoppelde Supabase-project is `iwgdsinkprrfarrxrpik`. De anon public key mag in frontend-builds gebruikt worden. Zet geen wachtwoorden, SMTP-passwords of service-role keys in Git. Die horen later in Cloud86/Plesk of Supabase secrets.
 
 ## Development
 

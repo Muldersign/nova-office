@@ -38,6 +38,9 @@ jobs:
         run: npm test
 
       - name: Build
+        env:
+          VITE_SUPABASE_URL: https://iwgdsinkprrfarrxrpik.supabase.co
+          VITE_SUPABASE_ANON_KEY: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Iml3Z2RzaW5rcHJyZmFycnhycGlrIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODMwNjk3MTEsImV4cCI6MjA5ODY0NTcxMX0.CBM2gUoEox91Z17y4_oBzZRAQOylrMe2JZqZMdoEi0Q
         run: npm run build
 
       - name: Publish to gh-pages
