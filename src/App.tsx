@@ -481,18 +481,30 @@ const auditEvents: AuditEvent[] = [
 ]
 
 const navItems = [
-  ['dashboard', LayoutDashboard, 'Dashboard'],
+  ['dashboard', LayoutDashboard, 'Werkruimte'],
   ['customers', Users, 'Klanten'],
-  ['invoices', FileText, 'Facturen'],
   ['quotes', FileCheck2, 'Offertes'],
-  ['companies', Building2, 'Bedrijven'],
-  ['roles', ShieldCheck, 'Rollen'],
+  ['invoices', FileText, 'Facturen'],
+  ['products', Package, 'Producten'],
+  ['companies', Building2, 'Werkruimtes'],
+  ['roles', ShieldCheck, 'Team'],
   ['database', BookOpen, 'Database'],
   ['design-system', Package, 'Design system'],
   ['account', Users, 'Account'],
   ['settings', Settings, 'Instellingen'],
   ['subscription', WalletCards, 'Abonnement'],
 ] as const
+
+const navGroups = [
+  { title: 'Vandaag', items: ['dashboard'] },
+  { title: 'Verkoop', items: ['customers', 'quotes', 'invoices'] },
+  { title: 'Financien', items: ['products'] },
+  { title: 'Werkruimte', items: ['companies', 'account'] },
+  { title: 'Beheer', items: ['roles', 'settings', 'subscription'] },
+  { title: 'Systeem', items: ['database', 'design-system'] },
+] as const
+
+const navItemMap = new Map(navItems.map((item) => [item[0], item]))
 
 const eur = new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR' })
 const sessionKeys = {
@@ -609,6 +621,26 @@ function isPasswordRecoveryUrl() {
   return query.get('reset') === '1' || query.get('type') === 'recovery' || hash.get('type') === 'recovery'
 }
 
+function requestedAuthMode(): AuthMode | null {
+  if (typeof window === 'undefined') {
+    return null
+  }
+
+  if (window.location.pathname.endsWith('/login')) return 'login'
+  if (window.location.pathname.endsWith('/register')) return 'register'
+  if (window.location.pathname.endsWith('/forgot')) return 'forgot'
+  return null
+}
+
+function authUrl(mode: AuthMode) {
+  const path = mode === 'register' ? '/register' : mode === 'forgot' ? '/forgot' : '/login'
+  if (typeof window !== 'undefined' && window.location.hostname === 'brenqo.nl') {
+    return `https://app.brenqo.nl${path}`
+  }
+
+  return path
+}
+
 function App() {
   const [workspaceLoading, setWorkspaceLoading] = useState(false)
   const [screen, setScreen] = useState<Screen>(() => {
@@ -655,6 +687,7 @@ function App() {
   const filteredCustomers = companyCustomers.filter((customer) => customerMatches(customer, globalSearch))
   const filteredInvoices = companyInvoices.filter((invoice) => invoiceMatches(invoice, companyCustomers, globalSearch))
   const filteredQuotes = companyQuotes.filter((quote) => quoteMatches(quote, companyCustomers, globalSearch))
+  const filteredProducts = companyProducts.filter((product) => productMatches(product, globalSearch))
   const activeCompany = companyRecords.find((company) => company.id === activeCompanyId) ?? companyRecords[0] ?? companies[0]
   const activeSettings = settingsRecords.find((settings) => settings.companyId === activeCompanyId) ?? defaultSettingsFor(activeCompanyId)
   const currentCustomer = companyCustomers.find((customer) => customer.id === selectedCustomer) ?? companyCustomers[0]
@@ -837,7 +870,12 @@ function App() {
   }
 
   if (screen === 'login') {
-    return <AuthScreen pendingInviteToken={pendingInviteToken} onLogin={completeLogin} />
+    const authMode = requestedAuthMode()
+    if (authMode) {
+      return <AuthPortal initialMode={authMode} pendingInviteToken={pendingInviteToken} onLogin={completeLogin} />
+    }
+
+    return <AuthScreen />
   }
 
   if (screen === 'password-reset') {
@@ -1120,11 +1158,21 @@ function App() {
           </select>
         </div>
         <nav>
-          {navItems.map(([id, Icon, label]) => (
-            <button key={id} className={screen === id ? 'active' : ''} onClick={() => navigate(id as Screen)}>
-              <Icon size={18} />
-              {label}
-            </button>
+          {navGroups.map((group) => (
+            <div className="nav-group" key={group.title}>
+              <span>{group.title}</span>
+              {group.items.map((id) => {
+                const item = navItemMap.get(id)
+                if (!item) return null
+                const [screenId, Icon, label] = item
+                return (
+                  <button key={screenId} className={screen === screenId ? 'active' : ''} onClick={() => navigate(screenId as Screen)}>
+                    <Icon size={18} />
+                    {label}
+                  </button>
+                )
+              })}
+            </div>
           ))}
         </nav>
         <div className="plan-card">
@@ -1141,13 +1189,13 @@ function App() {
             {menuOpen ? <X size={20} /> : <Menu size={20} />}
           </button>
           <div>
-            <p className="eyebrow">Slim ondernemen vanuit een centrale omgeving</p>
+            <p className="eyebrow">Een besturingssysteem voor ondernemers</p>
             <h1>{titleFor(screen)}</h1>
           </div>
           <div className="topbar-actions">
             <div className="search">
               <Search size={17} />
-              <input value={globalSearch} onChange={(event) => setGlobalSearch(event.target.value)} placeholder="Zoek klanten, facturen of offertes" />
+              <input value={globalSearch} onChange={(event) => setGlobalSearch(event.target.value)} placeholder="Zoek klant, factuur, offerte, KvK, IBAN of product" />
             </div>
             <button className="icon-button" aria-label="Meldingen">
               <Bell size={19} />
@@ -1159,17 +1207,10 @@ function App() {
           <p className={syncMessage.startsWith('Supabase fout') ? 'form-error' : 'success-note'}>{syncMessage}</p>
         )}
 
-        <div className="module-tabs" aria-label="MVP modules">
-          {(['dashboard', 'customers', 'invoices', 'quotes', 'products', 'companies', 'account', 'settings', 'subscription'] as Screen[]).map((module) => (
-            <button key={module} className={screen === module ? 'active' : ''} onClick={() => navigate(module)}>
-              {titleFor(module)}
-            </button>
-          ))}
-        </div>
-
         {screen === 'dashboard' && (
           <Dashboard
             metrics={metrics}
+            activeCompany={activeCompany}
             dashboardCustomers={filteredCustomers}
             dashboardInvoices={filteredInvoices}
             dashboardQuotes={filteredQuotes}
@@ -1343,7 +1384,7 @@ function App() {
             onSave={(company) => { void saveCompany(company) }}
           />
         )}
-        {screen === 'products' && <Products products={companyProducts} activeCompanyId={activeCompanyId} onSave={(product) => requirePermission(canEditFinancial, () => { void saveProduct(product) })} onDelete={(productId) => requirePermission(canEditFinancial, () => { void deleteProduct(productId) })} />}
+        {screen === 'products' && <Products products={filteredProducts} activeCompanyId={activeCompanyId} onSave={(product) => requirePermission(canEditFinancial, () => { void saveProduct(product) })} onDelete={(productId) => requirePermission(canEditFinancial, () => { void deleteProduct(productId) })} />}
         {screen === 'roles' && <Roles members={companyTeamMembers} canManage={canManageCompany} invitePreview={invitePreview} onInvite={(member) => requirePermission(canManageCompany, () => { void inviteTeamMember(member) })} onRoleChange={(memberId, role) => requirePermission(canManageCompany, () => updateTeamRole(memberId, role))} />}
         {screen === 'database' && <DatabaseFoundation />}
         {screen === 'design-system' && <DesignSystem />}
@@ -1441,18 +1482,88 @@ function PasswordResetScreen({ onDone }: { onDone: () => void }) {
   )
 }
 
-function AuthScreen({ pendingInviteToken, onLogin }: { pendingInviteToken: string; onLogin: () => Promise<void> }) {
-  const [activeProduct, setActiveProduct] = useState('Facturen')
-  const [demoName, setDemoName] = useState('')
-  const [demoEmail, setDemoEmail] = useState('')
-  const [demoSubmitted, setDemoSubmitted] = useState(false)
-  const [authMode, setAuthMode] = useState<AuthMode>('register')
+function AuthPortal({
+  initialMode,
+  pendingInviteToken,
+  onLogin,
+}: {
+  initialMode: AuthMode
+  pendingInviteToken: string
+  onLogin: () => Promise<void>
+}) {
+  const [authMode] = useState<AuthMode>(initialMode)
   const [authName, setAuthName] = useState('Glen Mulder')
   const [authCompany, setAuthCompany] = useState('Muldersign')
   const [authEmail, setAuthEmail] = useState('administratie@muldersign.nl')
   const [authPassword, setAuthPassword] = useState('')
   const [authMessage, setAuthMessage] = useState('')
   const [authBusy, setAuthBusy] = useState(false)
+
+  const switchMode = (mode: AuthMode) => {
+    window.location.href = authUrl(mode)
+  }
+
+  const submitAuthForm = async (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setAuthBusy(true)
+    setAuthMessage('')
+
+    const result = await submitAuth(getSupabaseClient(), authMode, {
+      email: authEmail,
+      password: authPassword,
+      name: authName,
+      companyName: authCompany,
+      redirectTo: `${window.location.origin}/`,
+      inviteToken: pendingInviteToken,
+    })
+
+    setAuthBusy(false)
+    setAuthMessage(result.message)
+    if (result.openApp && authMode !== 'forgot') {
+      if (pendingInviteToken) {
+        window.localStorage.removeItem(sessionKeys.pendingInviteToken)
+      }
+      await onLogin()
+    }
+  }
+
+  return (
+    <div className="auth-page auth-portal-page">
+      <section className="auth-portal">
+        <div className="auth-portal-copy">
+          <Brand />
+          <span className="pill">Brenqo account</span>
+          <h1>{authMode === 'login' ? 'Welkom terug' : authMode === 'forgot' ? 'Wachtwoord herstellen' : 'Start je werkruimte'}</h1>
+          <p>{authMode === 'login' ? 'Log in op je werkruimte en ga direct verder met je administratie.' : authMode === 'forgot' ? 'Ontvang een resetlink die terugkomt in de Brenqo resetflow.' : 'Maak je account aan en open je eerste werkruimte.'}</p>
+          {pendingInviteToken && <p className="success-note">Uitnodiging gevonden. Na inloggen of registreren word je automatisch toegevoegd aan het juiste bedrijf.</p>}
+        </div>
+        <form className="auth-form auth-portal-form" onSubmit={submitAuthForm}>
+          {authMode === 'register' && (
+            <>
+              <label>Naam<input value={authName} onChange={(event) => setAuthName(event.target.value)} /></label>
+              <label>Bedrijf<input value={authCompany} onChange={(event) => setAuthCompany(event.target.value)} /></label>
+            </>
+          )}
+          <label>E-mailadres<input value={authEmail} onChange={(event) => setAuthEmail(event.target.value)} type="email" /></label>
+          {authMode !== 'forgot' && <label>Wachtwoord<input value={authPassword} onChange={(event) => setAuthPassword(event.target.value)} type="password" placeholder="Minimaal 8 tekens" /></label>}
+          <button className="dark-button full" disabled={authBusy} type="submit">{authBusy ? 'Bezig...' : authMode === 'login' ? 'Inloggen' : authMode === 'forgot' ? 'Herstellink sturen' : 'Account aanmaken'}</button>
+          <div className="auth-switcher">
+            <button type="button" onClick={() => switchMode('login')}>Inloggen</button>
+            <button type="button" onClick={() => switchMode('register')}>Registreren</button>
+            <button type="button" onClick={() => switchMode('forgot')}>Wachtwoord vergeten</button>
+          </div>
+          {authMessage && <p className={authMessage.includes('geldig') || authMessage.includes('minimaal') ? 'form-error' : 'success-note'}>{authMessage}</p>}
+        </form>
+      </section>
+    </div>
+  )
+}
+
+function AuthScreen() {
+  const [activeProduct, setActiveProduct] = useState('Facturen')
+  const [demoName, setDemoName] = useState('')
+  const [demoEmail, setDemoEmail] = useState('')
+  const [demoSubmitted, setDemoSubmitted] = useState(false)
   const productViews = [
     {
       name: 'Facturen',
@@ -1490,32 +1601,7 @@ function AuthScreen({ pendingInviteToken, onLogin }: { pendingInviteToken: strin
     setDemoSubmitted(true)
   }
   const openAuth = (mode: AuthMode) => {
-    setAuthMode(mode)
-    setAuthMessage('')
-    scrollTo('auth')
-  }
-  const submitAuthForm = async (event: FormEvent<HTMLFormElement>) => {
-    event.preventDefault()
-    setAuthBusy(true)
-    setAuthMessage('')
-
-    const result = await submitAuth(getSupabaseClient(), authMode, {
-      email: authEmail,
-      password: authPassword,
-      name: authName,
-      companyName: authCompany,
-      redirectTo: `${window.location.origin}/`,
-      inviteToken: pendingInviteToken,
-    })
-
-    setAuthBusy(false)
-    setAuthMessage(result.message)
-    if (result.openApp && authMode !== 'forgot') {
-      if (pendingInviteToken) {
-        window.localStorage.removeItem(sessionKeys.pendingInviteToken)
-      }
-      await onLogin()
-    }
+    window.location.href = authUrl(mode)
   }
 
   return (
@@ -1537,9 +1623,9 @@ function AuthScreen({ pendingInviteToken, onLogin }: { pendingInviteToken: strin
 
         <div className="landing-hero">
           <div className="hero-copy">
-            <span className="pill">Een platform. Alles onder controle.</span>
-            <h1>Jouw administratie, maar dan <span>makkelijk</span></h1>
-            <p>Brenqo brengt facturen, offertes, klanten, producten en rapportages samen in een snelle werkruimte voor ondernemers.</p>
+            <span className="pill">Een werkruimte voor je hele bedrijf.</span>
+            <h1>Minder administratie. <span>Meer ondernemen.</span></h1>
+            <p>Brenqo brengt verkoop, klanten, documenten en financiële signalen samen in een rustige werkruimte die met je meedenkt.</p>
             <div className="hero-actions">
               <button className="dark-button large" onClick={() => openAuth('register')}>Gratis proberen <ArrowRight size={17} /></button>
               <button className="light-button large" onClick={() => scrollTo('demo')}>Plan een demo</button>
@@ -1604,7 +1690,7 @@ function AuthScreen({ pendingInviteToken, onLogin }: { pendingInviteToken: strin
             <div className="phone-preview">
               <div className="phone-top"><strong>Brenqo</strong><Menu size={18} /></div>
               <span className="pill compact-pill">Alles onder controle.</span>
-              <h2>Jouw administratie, maar dan <span>makkelijk</span></h2>
+              <h2>Administratie zonder <span>gedoe</span></h2>
               <button className="dark-button full" onClick={() => openAuth('register')}>Gratis proberen</button>
               <PreviewMetric title="Omzet" value="€ 125.430" tone="blue" />
               <PreviewMetric title="Openstaand" value="€ 18.640" />
@@ -1613,8 +1699,8 @@ function AuthScreen({ pendingInviteToken, onLogin }: { pendingInviteToken: strin
         </div>
 
         <section className="landing-products" id="producten">
-          <h2>Alles wat je bedrijf nodig heeft</h2>
-          <p>Van administratie tot CRM. Brenqo groeit met je mee.</p>
+          <h2>Alles voor je bedrijf. Een werkruimte.</h2>
+          <p>Van offerte tot factuur, van klant tot inzicht. Brenqo groeit met je mee.</p>
           <div className="product-strip">
             {[
               ['Facturen', 'Maak, verstuur en volg facturen.'],
@@ -1638,7 +1724,7 @@ function AuthScreen({ pendingInviteToken, onLogin }: { pendingInviteToken: strin
           <div>
             <span className="pill">Minder klikken, meer gedaan</span>
             <h2>Een workflow die voelt alsof hij meedenkt</h2>
-            <p>De MVP is gebouwd rondom een schaalbare basis: multi-tenant bedrijven, rollen, klanten, facturen, offertes en een design-systeem dat later AI en boekhouding kan dragen.</p>
+            <p>Brenqo is geen klassieke boekhoudlijst. Het is een werkruimte waar acties, signalen en documenten logisch samenkomen.</p>
           </div>
           <div className="workflow-grid">
             <article>
@@ -1692,32 +1778,6 @@ function AuthScreen({ pendingInviteToken, onLogin }: { pendingInviteToken: strin
             <button className="dark-button full" type="submit">Demo aanvragen</button>
             <button className="light-button full" type="button" onClick={() => openAuth('login')}>Open de app</button>
             {demoSubmitted && <p className="success-note">Demo-aanvraag staat klaar voor {demoName || demoEmail}. In de backendfase koppelen we dit aan mail en CRM.</p>}
-          </form>
-        </section>
-
-        <section className="auth-section" id="auth">
-          <div>
-            <span className="pill">Brenqo account</span>
-            <h2>{authMode === 'login' ? 'Log in op je werkruimte' : authMode === 'forgot' ? 'Herstel je wachtwoord' : 'Maak je werkruimte aan'}</h2>
-            <p>Deze flow gebruikt Supabase Auth zodra de live database is ingericht. Lokaal blijft een demo-sessie beschikbaar voor ontwikkeling.</p>
-            {pendingInviteToken && <p className="success-note">Uitnodiging gevonden. Na inloggen of registreren word je automatisch toegevoegd aan het juiste bedrijf.</p>}
-          </div>
-          <form className="auth-form" onSubmit={submitAuthForm}>
-            {authMode === 'register' && (
-              <>
-                <label>Naam<input value={authName} onChange={(event) => setAuthName(event.target.value)} /></label>
-                <label>Bedrijf<input value={authCompany} onChange={(event) => setAuthCompany(event.target.value)} /></label>
-              </>
-            )}
-            <label>E-mailadres<input value={authEmail} onChange={(event) => setAuthEmail(event.target.value)} type="email" /></label>
-            {authMode !== 'forgot' && <label>Wachtwoord<input value={authPassword} onChange={(event) => setAuthPassword(event.target.value)} type="password" placeholder="Minimaal 8 tekens" /></label>}
-            <button className="dark-button full" disabled={authBusy} type="submit">{authBusy ? 'Bezig...' : authMode === 'login' ? 'Inloggen' : authMode === 'forgot' ? 'Herstellink sturen' : 'Account aanmaken'}</button>
-            <div className="auth-switcher">
-              <button type="button" onClick={() => setAuthMode('login')}>Inloggen</button>
-              <button type="button" onClick={() => setAuthMode('register')}>Registreren</button>
-              <button type="button" onClick={() => setAuthMode('forgot')}>Wachtwoord vergeten</button>
-            </div>
-            {authMessage && <p className={authMessage.includes('geldig') || authMessage.includes('minimaal') ? 'form-error' : 'success-note'}>{authMessage}</p>}
           </form>
         </section>
 
@@ -1796,6 +1856,7 @@ function OnboardingScreen({ company, onComplete }: { company: Company; onComplet
 
 function Dashboard({
   metrics,
+  activeCompany,
   dashboardCustomers,
   dashboardInvoices,
   dashboardQuotes,
@@ -1804,6 +1865,7 @@ function Dashboard({
   onNavigate,
 }: {
   metrics: Record<string, number>
+  activeCompany: Company
   dashboardCustomers: Customer[]
   dashboardInvoices: Invoice[]
   dashboardQuotes: Quote[]
@@ -1811,19 +1873,44 @@ function Dashboard({
   chartData: Array<{ month: string; omzet: number; winst: number }>
   onNavigate: (screen: Screen) => void
 }) {
+  const openInvoices = dashboardInvoices.filter((invoice) => invoice.status !== 'Betaald')
+  const expiringQuotes = dashboardQuotes.filter((quote) => quote.status === 'Verzonden').length
+  const todayTasks = [
+    `${openInvoices.length} facturen opvolgen`,
+    `${dashboardQuotes.filter((quote) => quote.status === 'Concept').length} offertes afmaken`,
+    `BTW-reservering controleren: ${eur.format(metrics.vatDue)}`,
+    `${dashboardCustomers.length} klantrelaties actueel houden`,
+  ]
+  const aiInsights = [
+    metrics.revenue > 0 ? `Je omzet deze maand staat op ${eur.format(metrics.revenue)}.` : 'Maak je eerste factuur om omzetinzicht te starten.',
+    openInvoices.length > 0 ? `${openInvoices.length} facturen staan nog open. Verstuur vandaag een korte herinnering.` : 'Geen openstaande facturen. Je cashflow is rustig.',
+    expiringQuotes > 0 ? `${expiringQuotes} verzonden offertes vragen opvolging.` : 'Er zijn geen verzonden offertes die nu aandacht vragen.',
+  ]
+
   return (
     <div className="content-grid">
+      <section className="workspace-hero panel wide">
+        <div>
+          <p className="eyebrow">Goedemorgen</p>
+          <h2>{activeCompany.name}: vandaag in je werkruimte</h2>
+          <p>Minder administratie. Meer ondernemen.</p>
+        </div>
+        <div className="hero-counter">
+          <span>Nog te ontvangen</span>
+          <strong>{eur.format(metrics.open)}</strong>
+          <em>{openInvoices.length} facturen</em>
+        </div>
+      </section>
+
       <section className="kpi-grid">
-        <Metric label="Omzet deze maand" value={eur.format(metrics.revenue)} trend="juli" />
-        <Metric label="Openstaande facturen" value={eur.format(metrics.open)} trend={`${dashboardInvoices.filter((invoice) => invoice.status !== 'Betaald').length} open`} />
-        <Metric label="Verlopen facturen" value={eur.format(metrics.overdue)} trend="actie nodig" />
-        <Metric label="Aantal klanten" value={String(dashboardCustomers.length)} trend="tenant-safe" />
-        <Metric label="Concept offertes" value={String(dashboardQuotes.filter((quote) => quote.status === 'Concept').length)} trend="workflow" />
-        <Metric label="BTW deze maand" value={eur.format(metrics.vatDue)} trend="voorbereid" />
+        <Metric label="Omzet deze maand" value={eur.format(metrics.revenue)} trend="+14% vs vorige maand" />
+        <Metric label="Nog te ontvangen" value={eur.format(metrics.open)} trend={`${openInvoices.length} facturen`} />
+        <Metric label="BTW" value={eur.format(metrics.vatDue)} trend="nog 17 dagen" />
+        <Metric label="Kasstroom" value={eur.format(metrics.profit - metrics.open)} trend="verwacht saldo" />
       </section>
 
       <section className="panel wide">
-        <PanelHeader title="MVP-activiteit" action="Bekijk facturen" onAction={() => onNavigate('invoices')} />
+        <PanelHeader title="Omzet en resultaat" action="Bekijk facturen" onAction={() => onNavigate('invoices')} />
         <div className="chart">
           <ResponsiveContainer>
             <AreaChart data={chartData}>
@@ -1839,6 +1926,20 @@ function Dashboard({
       </section>
 
       <section className="panel">
+        <PanelHeader title="Vandaag" />
+        <div className="task-list live-list">
+          {todayTasks.map((task) => <span key={task}><Check size={16} /> {task}</span>)}
+        </div>
+      </section>
+
+      <section className="panel ai-panel">
+        <PanelHeader title="AI suggesties" />
+        <div className="suggestions">
+          {aiInsights.map((insight) => <span key={insight}><Sparkles size={16} /> {insight}</span>)}
+        </div>
+      </section>
+
+      <section className="panel">
         <PanelHeader title="Snelle acties" />
         <div className="quick-actions">
           <button onClick={() => onNavigate('invoice-create')}><FilePlus2 size={18} /> Factuur maken</button>
@@ -1849,7 +1950,7 @@ function Dashboard({
       </section>
 
       <section className="panel">
-        <PanelHeader title="Recente activiteit" />
+        <PanelHeader title="Activiteit" />
         <div className="suggestions">
           {auditEvents.slice(0, 4).map((event) => (
             <span key={event.id}><Check size={16} /> {event.action}</span>
@@ -1873,6 +1974,7 @@ function Customers({ customers, onAdd, onSelect }: { customers: Customer[]; onAd
   return (
     <section className="panel">
       <PanelHeader title="Klantenoverzicht" action="Klant toevoegen" onAction={onAdd} />
+      {customers.length === 0 && <EmptyState title="Nog geen klanten" text="Begin met een klant, daarna maak je sneller offertes en facturen." action="Klant toevoegen" onAction={onAdd} />}
       <DataTable
         columns={['Bedrijf', 'Contactpersoon', 'E-mail', 'Telefoon', 'Plaats', 'Omzet', '']}
         rows={customers.map((customer) => [
@@ -2025,6 +2127,7 @@ function Invoices({
         <span>{rows.length} van {invoices.length} facturen</span>
         <span>Zoeken via de balk bovenin</span>
       </div>
+      {rows.length === 0 && <EmptyState title="Nog geen facturen" text="Maak een nieuwe factuur of open een voorbeeld vanuit je werkruimte." action="Nieuwe factuur" onAction={onCreate} />}
       <DataTable
         columns={['Factuur', 'Klant', 'Datum', 'Vervaldatum', 'Bedrag', 'BTW', 'Status', 'Actie']}
         rows={rows.map((invoice) => [
@@ -2338,6 +2441,7 @@ function Quotes({
         <span>{rows.length} van {quotes.length} offertes</span>
         <span>Zoeken via de balk bovenin</span>
       </div>
+      {rows.length === 0 && <EmptyState title="Nog geen offertes" text="Maak een voorstel dat later met een klik naar factuur kan." action="Nieuwe offerte" onAction={onCreate} />}
       <DataTable
         columns={['Offerte', 'Klant', 'Geldig tot', 'Bedrag', 'Status', 'Actie']}
         rows={rows.map((quote) => [
@@ -2604,7 +2708,7 @@ function Companies({
 }) {
   return (
     <section className="panel">
-      <PanelHeader title="Bedrijven en administraties" action="Bedrijf toevoegen" onAction={onAdd} />
+      <PanelHeader title="Werkruimtes" action="Werkruimte toevoegen" onAction={onAdd} />
       <DataTable
         columns={['Bedrijf', 'Plaats', 'Rol', 'Pakket', 'KvK', 'BTW', 'Acties']}
         rows={companies.map((company) => [
@@ -2806,11 +2910,11 @@ function Roles({
   return (
     <div className="content-grid">
       <section className="panel wide">
-        <PanelHeader title="Rollen en rechten" />
+        <PanelHeader title="Rechten binnen team" />
         <DataTable columns={['Rol', 'Toegang']} rows={roles.map((role) => [role.name, role.access])} />
       </section>
       <section className="panel wide">
-        <PanelHeader title="Teamleden" />
+        <PanelHeader title="Team" />
         <DataTable
           columns={['Naam', 'E-mail', 'Rol', 'Status']}
           rows={members.map((member) => [
@@ -3114,6 +3218,17 @@ function PanelHeader({ title, action, onAction }: { title: string; action?: stri
   return <div className="panel-header"><h2>{title}</h2>{action && <button className="primary" onClick={onAction}>{action}</button>}</div>
 }
 
+function EmptyState({ title, text, action, onAction }: { title: string; text: string; action: string; onAction: () => void }) {
+  return (
+    <div className="empty-state">
+      <Sparkles size={22} />
+      <strong>{title}</strong>
+      <p>{text}</p>
+      <button className="primary" onClick={onAction}>{action}</button>
+    </div>
+  )
+}
+
 function DataTable({ columns, rows }: { columns: string[]; rows: ReactNode[][] }) {
   return (
     <div className="table-wrap">
@@ -3247,12 +3362,22 @@ function quoteMatches(quote: Quote, sourceCustomers: Customer[], searchTerm: str
   ], searchTerm)
 }
 
+function productMatches(product: Product, searchTerm: string) {
+  return includesSearch([
+    product.name,
+    product.description,
+    product.category,
+    String(product.unitPrice),
+    String(product.vat),
+  ], searchTerm)
+}
+
 function titleFor(screen: Screen) {
   const titles: Record<Screen, string> = {
     login: 'Inloggen',
     'password-reset': 'Wachtwoord herstellen',
     onboarding: 'Onboarding',
-    dashboard: 'Dashboard',
+    dashboard: 'Werkruimte',
     customers: 'Klanten',
     'customer-form': 'Klant toevoegen',
     'customer-detail': 'Klant detail',
@@ -3264,9 +3389,9 @@ function titleFor(screen: Screen) {
     'quote-create': 'Offerte aanmaken',
     'quote-edit': 'Offerte bewerken',
     'quote-detail': 'Offerte detail',
-    companies: 'Bedrijven',
+    companies: 'Werkruimtes',
     'company-form': 'Bedrijf beheren',
-    roles: 'Rollen en rechten',
+    roles: 'Team',
     database: 'Database',
     'design-system': 'Design system',
     products: 'Producten en diensten',

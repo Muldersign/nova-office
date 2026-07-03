@@ -110,12 +110,24 @@ button {
   color: #fff;
   background: linear-gradient(180deg, #111827, #030712);
   box-shadow: 0 10px 24px rgba(17, 24, 39, 0.2);
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
 }
 
 .light-button {
   color: #111827;
   background: #fff;
   border: 1px solid #d9dde8;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.dark-button:hover,
+.light-button:hover,
+.primary:hover,
+.ghost:hover,
+.product-strip button:hover,
+.quick-actions button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 14px 34px rgba(16, 24, 40, 0.12);
 }
 
 .large {
@@ -213,6 +225,7 @@ button {
   border-radius: 8px;
   background: #fff;
   box-shadow: 0 24px 80px rgba(15, 23, 42, 0.18);
+  animation: float-dashboard 7s ease-in-out infinite;
 }
 
 .demo-sidebar {
@@ -334,6 +347,7 @@ button {
   flex: 1;
   border-radius: 999px 999px 3px 3px;
   background: linear-gradient(180deg, #6d66ff, #38d391);
+  animation: grow-bar 0.9s ease both;
 }
 
 .demo-list {
@@ -751,6 +765,51 @@ button {
   padding: 0;
 }
 
+.auth-portal-page {
+  min-height: 100vh;
+  display: grid;
+  place-items: center;
+  padding: 32px;
+  background:
+    radial-gradient(circle at 20% 10%, rgba(24, 119, 242, 0.08), transparent 28%),
+    #f8fafc;
+}
+
+.auth-portal {
+  width: min(1040px, 100%);
+  display: grid;
+  grid-template-columns: minmax(0, 0.9fr) minmax(360px, 0.7fr);
+  gap: 24px;
+  align-items: stretch;
+}
+
+.auth-portal-copy,
+.auth-portal-form {
+  padding: 32px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: var(--shadow);
+}
+
+.auth-portal-copy {
+  display: grid;
+  gap: 18px;
+  align-content: center;
+}
+
+.auth-portal-copy h1 {
+  margin: 0;
+  font-size: clamp(42px, 5vw, 72px);
+  line-height: 1;
+}
+
+.auth-portal-copy p {
+  color: var(--muted);
+  font-size: 18px;
+  line-height: 1.6;
+}
+
 .success-note {
   margin: 0;
   padding: 12px;
@@ -1032,7 +1091,20 @@ textarea {
 
 nav {
   display: grid;
+  gap: 14px;
+}
+
+.nav-group {
+  display: grid;
   gap: 5px;
+}
+
+.nav-group > span {
+  padding: 0 12px;
+  color: rgba(255, 255, 255, 0.42);
+  font-size: 11px;
+  font-weight: 900;
+  text-transform: uppercase;
 }
 
 nav button {
@@ -1045,12 +1117,14 @@ nav button {
   padding: 0 12px;
   background: transparent;
   color: rgba(255, 255, 255, 0.7);
+  transition: background 0.16s ease, color 0.16s ease, transform 0.16s ease;
 }
 
 nav button.active,
 nav button:hover {
   background: var(--nav-soft);
   color: #fff;
+  transform: translateX(2px);
 }
 
 .plan-card {
@@ -1174,7 +1248,49 @@ nav button:hover {
 
 .kpi-grid {
   grid-column: 1 / -1;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.workspace-hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  align-items: center;
+  background:
+    linear-gradient(135deg, rgba(24, 119, 242, 0.08), rgba(19, 163, 111, 0.06)),
+    #fff;
+}
+
+.workspace-hero h2 {
+  margin: 0 0 8px;
+  font-size: 34px;
+}
+
+.workspace-hero p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.hero-counter {
+  min-width: 250px;
+  display: grid;
+  gap: 6px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: 0 18px 50px rgba(16, 24, 40, 0.08);
+}
+
+.hero-counter span,
+.hero-counter em {
+  color: var(--muted);
+  font-style: normal;
+  font-weight: 800;
+}
+
+.hero-counter strong {
+  font-size: 30px;
 }
 
 .metric {
@@ -1182,6 +1298,14 @@ nav button:hover {
   padding: 18px;
   display: grid;
   align-content: space-between;
+  animation: card-in 0.45s ease both;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.metric:hover,
+.panel:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 18px 50px rgba(16, 24, 40, 0.08);
 }
 
 .metric span {
@@ -1488,13 +1612,50 @@ th {
 }
 
 .suggestions span,
-.task {
+.task,
+.live-list span {
   display: flex;
   align-items: center;
   gap: 10px;
   padding: 12px;
   border-radius: 8px;
   background: var(--soft);
+}
+
+.ai-panel {
+  border-color: rgba(24, 119, 242, 0.18);
+  background: linear-gradient(180deg, #fff, rgba(232, 241, 255, 0.55));
+}
+
+.empty-state {
+  display: grid;
+  justify-items: start;
+  gap: 10px;
+  margin: 12px 0 16px;
+  padding: 20px;
+  border: 1px dashed #d4d9e6;
+  border-radius: 8px;
+  background: #fafbff;
+}
+
+.empty-state p {
+  margin: 0;
+  color: var(--muted);
+}
+
+@keyframes float-dashboard {
+  0%, 100% { transform: translateY(0); }
+  50% { transform: translateY(-10px); }
+}
+
+@keyframes grow-bar {
+  from { transform: scaleY(0.4); transform-origin: bottom; opacity: 0.65; }
+  to { transform: scaleY(1); transform-origin: bottom; opacity: 1; }
+}
+
+@keyframes card-in {
+  from { transform: translateY(8px); opacity: 0; }
+  to { transform: translateY(0); opacity: 1; }
 }
 
 .task > span {
@@ -1934,7 +2095,9 @@ th {
 
   .workflow-section,
   .demo-section,
-  .auth-section {
+  .auth-section,
+  .auth-portal,
+  .workspace-hero {
     grid-template-columns: 1fr;
   }
 
@@ -1968,7 +2131,8 @@ th {
   }
 
   .subscription-hero,
-  .account-hero {
+  .account-hero,
+  .workspace-hero {
     align-items: stretch;
     flex-direction: column;
   }
