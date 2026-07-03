@@ -647,7 +647,7 @@ function App() {
   const nextInvoiceNumber = nextDocumentNumber(companyInvoices.map((invoice) => invoice.number), activeSettings.invoicePrefix)
   const nextQuoteNumber = nextDocumentNumber(companyQuotes.map((quote) => quote.number), activeSettings.quotePrefix, 3)
 
-  const applyRemoteWorkspace = (remote: Awaited<ReturnType<typeof loadRemoteWorkspace>>) => {
+  const applyRemoteWorkspace = (remote: Awaited<ReturnType<typeof loadRemoteWorkspace>>, options: { openDashboard?: boolean } = {}) => {
     if (!remote || remote.companies.length === 0) {
       return false
     }
@@ -664,7 +664,9 @@ function App() {
     const remoteCompanyId = rememberRemoteWorkspace(remote)
     if (remoteCompanyId) {
       setActiveCompanyIdState(remoteCompanyId)
-      setScreen('dashboard')
+      if (options.openDashboard) {
+        setScreen('dashboard')
+      }
       return true
     }
 
@@ -683,7 +685,7 @@ function App() {
     }
 
     const remote = await loadRemoteWorkspace(client)
-    return applyRemoteWorkspace(remote)
+    return applyRemoteWorkspace(remote, { openDashboard: true })
   }
 
   useEffect(() => {
