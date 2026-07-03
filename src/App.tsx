@@ -37,6 +37,16 @@ import { calculateTotals, nextDocumentNumber, validateRequiredCustomer } from '.
 import { foundationRules, foundationSchema, tenantScopedTables } from './foundation/database'
 import { createPrintableDocumentHtml } from './foundation/documents'
 import { submitAuth, type AuthMode } from './services/authService'
+import {
+  deleteRemoteRecord,
+  loadRemoteWorkspace,
+  upsertRemoteCompany,
+  upsertRemoteCustomer,
+  upsertRemoteInvoice,
+  upsertRemoteProduct,
+  upsertRemoteQuote,
+  upsertRemoteSettings,
+} from './services/remoteWorkspace'
 import { getSupabaseClient } from './services/supabaseClient'
 import { createWorkspaceStore } from './services/workspaceStore'
 import './App.css'
@@ -639,6 +649,42 @@ function App() {
     writeWorkspaceRecords(workspaceKeys.auditEvents, auditRecords)
   }, [auditRecords])
 
+  useEffect(() => {
+    let active = true
+    const client = getSupabaseClient()
+    if (!client || screen === 'login') {
+      return () => {
+        active = false
+      }
+    }
+
+    void client.auth.getSession().then(async ({ data }) => {
+      if (!active || !data.session) {
+        return
+      }
+
+      const remote = await loadRemoteWorkspace(client)
+      if (!active || !remote || remote.companies.length === 0) {
+        return
+      }
+
+      setCompanyRecords(remote.companies as Company[])
+      setSettingsRecords(remote.companySettings as CompanySettings[])
+      setTeamRecords(remote.teamMembers as TeamMember[])
+      setProductRecords(remote.products as Product[])
+      setCustomerRecords(remote.customers as Customer[])
+      setInvoiceRecords(remote.invoices as Invoice[])
+      setQuoteRecords(remote.quotes as Quote[])
+      setAuditRecords(remote.auditEvents as AuditEvent[])
+      setActiveCompanyIdState(String(remote.companies[0].id))
+      window.localStorage.setItem(sessionKeys.activeCompanyId, String(remote.companies[0].id))
+    })
+
+    return () => {
+      active = false
+    }
+  }, [screen])
+
   const setActiveCompanyId = (nextCompanyId: string) => {
     setActiveCompanyIdState(nextCompanyId)
     window.localStorage.setItem(sessionKeys.activeCompanyId, nextCompanyId)
@@ -693,6 +739,8 @@ function App() {
     setCustomerRecords((records) => {
       return exists ? records.map((record) => (record.id === customer.id ? customer : record)) : [customer, ...records]
     })
+    const client = getSupabaseClient()
+    if (client) void upsertRemoteCustomer(client, customer)
     appendAudit(customer.companyId, `${exists ? 'Klant bijgewerkt' : 'Klant toegevoegd'}: ${customer.name}`, 'customer', customer.id)
     setSelectedCustomer(customer.id)
     setEditingCustomerId(null)
@@ -702,6 +750,8 @@ function App() {
   const saveCompany = (company: Company) => {
     const exists = companyRecords.some((record) => record.id === company.id)
     setCompanyRecords((records) => (exists ? records.map((record) => (record.id === company.id ? company : record)) : [company, ...records]))
+    const client = getSupabaseClient()
+    if (client) void upsertRemoteCompany(client, company)
     appendAudit(company.id, `${exists ? 'Bedrijf bijgewerkt' : 'Bedrijf toegevoegd'}: ${company.name}`, 'company', company.id)
     setEditingCompanyId(null)
     setSettingsRecords((records) => records.some((record) => record.companyId === company.id) ? records : [defaultSettingsFor(company.id), ...records])
@@ -712,6 +762,8 @@ function App() {
   const saveInvoice = (invoice: Invoice) => {
     const exists = invoiceRecords.some((record) => record.id === invoice.id)
     setInvoiceRecords((records) => (exists ? records.map((record) => (record.id === invoice.id ? invoice : record)) : [invoice, ...records]))
+    const client = getSupabaseClient()
+    if (client) void upsertRemoteInvoice(client, invoice)
     appendAudit(invoice.companyId, `Factuur ${invoice.number} ${exists ? 'bijgewerkt' : 'aangemaakt'} voor ${nameFor(invoice.customerId, customerRecords)}`, 'invoice', invoice.id)
     setSelectedInvoice(invoice.id)
     navigate('invoice-detail')
@@ -720,6 +772,8 @@ function App() {
   const saveQuote = (quote: Quote) => {
     const exists = quoteRecords.some((record) => record.id === quote.id)
     setQuoteRecords((records) => (exists ? records.map((record) => (record.id === quote.id ? quote : record)) : [quote, ...records]))
+    const client = getSupabaseClient()
+    if (client) void upsertRemoteQuote(client, quote)
     appendAudit(quote.companyId, `Offerte ${quote.number} ${exists ? 'bijgewerkt' : 'aangemaakt'} voor ${nameFor(quote.customerId, customerRecords)}`, 'quote', quote.id)
     setSelectedQuote(quote.id)
     navigate('quote-detail')
@@ -727,6 +781,8 @@ function App() {
 
   const deleteInvoice = (invoice: Invoice) => {
     setInvoiceRecords((records) => records.filter((record) => record.id !== invoice.id))
+    const client = getSupabaseClient()
+    if (client) void deleteRemoteRecord(client, 'invoices', invoice.id)
     appendAudit(invoice.companyId, `Factuur ${invoice.number} verwijderd`, 'invoice', invoice.id)
     setSelectedInvoice(companyInvoices.find((record) => record.id !== invoice.id)?.id ?? invoices[0].id)
     navigate('invoices')
@@ -734,6 +790,8 @@ function App() {
 
   const deleteQuote = (quote: Quote) => {
     setQuoteRecords((records) => records.filter((record) => record.id !== quote.id))
+    const client = getSupabaseClient()
+    if (client) void deleteRemoteRecord(client, 'quotes', quote.id)
     appendAudit(quote.companyId, `Offerte ${quote.number} verwijderd`, 'quote', quote.id)
     setSelectedQuote(companyQuotes.find((record) => record.id !== quote.id)?.id ?? quotes[0].id)
     navigate('quotes')
@@ -767,18 +825,24 @@ function App() {
     setSettingsRecords((records) => (records.some((record) => record.companyId === settings.companyId)
       ? records.map((record) => (record.companyId === settings.companyId ? settings : record))
       : [settings, ...records]))
+    const client = getSupabaseClient()
+    if (client) void upsertRemoteSettings(client, settings)
     appendAudit(settings.companyId, 'Bedrijfsinstellingen bijgewerkt', 'settings', settings.companyId)
   }
 
   const saveProduct = (product: Product) => {
     const exists = productRecords.some((record) => record.id === product.id)
     setProductRecords((records) => (exists ? records.map((record) => (record.id === product.id ? product : record)) : [product, ...records]))
+    const client = getSupabaseClient()
+    if (client) void upsertRemoteProduct(client, product)
     appendAudit(product.companyId, `${exists ? 'Productregel bijgewerkt' : 'Productregel toegevoegd'}: ${product.name}`, 'settings', product.id)
   }
 
   const deleteProduct = (productId: string) => {
     const product = productRecords.find((record) => record.id === productId)
     setProductRecords((records) => records.filter((record) => record.id !== productId))
+    const client = getSupabaseClient()
+    if (client) void deleteRemoteRecord(client, 'products', productId)
     if (product) {
       appendAudit(product.companyId, `Productregel verwijderd: ${product.name}`, 'settings', product.id)
     }
@@ -788,6 +852,8 @@ function App() {
     const invoice = invoiceRecords.find((record) => record.id === invoiceId)
     setInvoiceRecords((records) => records.map((record) => (record.id === invoiceId ? { ...record, status } : record)))
     if (invoice) {
+      const client = getSupabaseClient()
+      if (client) void upsertRemoteInvoice(client, { ...invoice, status })
       appendAudit(invoice.companyId, `Factuur ${invoice.number} gemarkeerd als ${status.toLowerCase()}`, 'invoice', invoice.id)
     }
   }
@@ -796,6 +862,8 @@ function App() {
     const quote = quoteRecords.find((record) => record.id === quoteId)
     setQuoteRecords((records) => records.map((record) => (record.id === quoteId ? { ...record, status } : record)))
     if (quote) {
+      const client = getSupabaseClient()
+      if (client) void upsertRemoteQuote(client, { ...quote, status })
       appendAudit(quote.companyId, `Offerte ${quote.number} gemarkeerd als ${status.toLowerCase()}`, 'quote', quote.id)
     }
   }
