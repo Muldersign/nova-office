@@ -84,3 +84,5 @@ Cloud86/Plesk moet voor `brenqo.nl` dezelfde `gh-pages` build publiceren als de 
 ## Referentieonderzoek
 
 Jortt mag uitsluitend functioneel worden gebruikt als referentie voor flows, navigatie en boekhoudprocessen. Brenqo behoudt een eigen merkidentiteit, codebase, interactiepatronen en visuele stijl.
+
+De huidige benchmarknotities staan in [docs/functional-benchmark.md](docs/functional-benchmark.md). Gebruik dit document als productkompas voor nieuwe modules en UX-beslissingen.
