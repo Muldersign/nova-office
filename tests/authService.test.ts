@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { submitAuth, updatePassword, validateAuthInput } from '../src/services/authService.ts'
+import { publicAuthRedirectUrl, submitAuth, updatePassword, validateAuthInput } from '../src/services/authService.ts'
 
 test('auth validation rejects invalid email', () => {
   assert.deepEqual(validateAuthInput('login', 'geen-email', 'wachtwoord'), {
@@ -18,6 +18,11 @@ test('auth validation enforces password length', () => {
 
 test('auth validation accepts forgot password without password', () => {
   assert.equal(validateAuthInput('forgot', 'info@brenqo.nl', '').ok, true)
+})
+
+test('public auth redirect never falls back to localhost', () => {
+  assert.equal(publicAuthRedirectUrl({ VITE_APP_DOMAIN: 'https://brenqo.nl/' }), 'https://brenqo.nl/')
+  assert.equal(publicAuthRedirectUrl({}), 'https://brenqo.nl/')
 })
 
 test('forgot password sends users back to Brenqo reset screen', async () => {

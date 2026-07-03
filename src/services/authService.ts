@@ -8,6 +8,13 @@ export type AuthResult = {
   openApp?: boolean
 }
 
+export function publicAuthRedirectUrl(env: Record<string, string | undefined> = import.meta.env) {
+  const configuredDomain = env.VITE_APP_DOMAIN?.trim()
+  const fallbackDomain = 'https://brenqo.nl'
+  const baseUrl = configuredDomain || fallbackDomain
+  return `${baseUrl.replace(/\/+$/, '')}/`
+}
+
 export function validateAuthInput(mode: AuthMode, email: string, password: string, name?: string, companyName?: string): AuthResult {
   if (!email.includes('@')) {
     return { ok: false, message: 'Vul een geldig e-mailadres in.' }

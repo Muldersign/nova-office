@@ -38,7 +38,7 @@ import { foundationRules, foundationSchema, tenantScopedTables } from './foundat
 import { createPrintableDocumentHtml } from './foundation/documents'
 import { isUsageWithinPlan, planByName, planCatalog, usagePercentage, type PlanLimitKey, type PlanName, type PlanUsage } from './foundation/subscription'
 import { createDocumentEmail, createInviteEmail, createInviteToken, safeDocumentFilename } from './foundation/workflows'
-import { submitAuth, updatePassword, type AuthMode } from './services/authService'
+import { publicAuthRedirectUrl, submitAuth, updatePassword, type AuthMode } from './services/authService'
 import {
   deleteRemoteRecord,
   createRemoteTeamInvite,
@@ -1508,7 +1508,7 @@ function AuthPortal({
       password: authPassword,
       name: authName,
       companyName: authCompany,
-      redirectTo: `${window.location.origin}/`,
+      redirectTo: publicAuthRedirectUrl(),
       inviteToken: pendingInviteToken,
     })
 
