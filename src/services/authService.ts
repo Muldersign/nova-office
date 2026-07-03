@@ -31,7 +31,7 @@ export function validateAuthInput(mode: AuthMode, email: string, password: strin
 export async function submitAuth(
   client: SupabaseClient | null,
   mode: AuthMode,
-  input: { email: string; password: string; name: string; companyName: string; redirectTo: string },
+  input: { email: string; password: string; name: string; companyName: string; redirectTo: string; inviteToken?: string },
 ) {
   const validation = validateAuthInput(mode, input.email, input.password, input.name, input.companyName)
   if (!validation.ok) {
@@ -64,11 +64,13 @@ export async function submitAuth(
     }
 
     if (data.session) {
-      const bootstrap = await bootstrapWorkspace(client, input.name, input.companyName)
+      const bootstrap = input.inviteToken
+        ? await acceptInviteWorkspace(client, input.inviteToken)
+        : await bootstrapWorkspace(client, input.name, input.companyName)
       if (!bootstrap.ok) {
         return bootstrap
       }
-      return { ok: true, message: 'Account aangemaakt en werkruimte geopend.', openApp: true }
+      return { ok: true, message: input.inviteToken ? 'Account aangemaakt en uitnodiging geaccepteerd.' : 'Account aangemaakt en werkruimte geopend.', openApp: true }
     }
 
     return { ok: true, message: 'Account aangemaakt. Bevestig je e-mailadres voordat je inlogt.' }
@@ -79,12 +81,14 @@ export async function submitAuth(
     return { ok: false, message: error.message }
   }
 
-  const bootstrap = await bootstrapWorkspace(client, input.name, input.companyName)
+  const bootstrap = input.inviteToken
+    ? await acceptInviteWorkspace(client, input.inviteToken)
+    : await bootstrapWorkspace(client, input.name, input.companyName)
   if (!bootstrap.ok) {
     return bootstrap
   }
 
-  return { ok: true, message: 'Je bent ingelogd.', openApp: true }
+  return { ok: true, message: input.inviteToken ? 'Je bent ingelogd en toegevoegd aan het bedrijf.' : 'Je bent ingelogd.', openApp: true }
 }
 
 export async function bootstrapWorkspace(client: SupabaseClient, name: string, companyName: string) {
@@ -98,4 +102,16 @@ export async function bootstrapWorkspace(client: SupabaseClient, name: string, c
   }
 
   return { ok: true, message: 'Werkruimte is klaar.' }
+}
+
+export async function acceptInviteWorkspace(client: SupabaseClient, inviteToken: string) {
+  const { error } = await client.rpc('accept_company_invite', {
+    invite_token: inviteToken,
+  })
+
+  if (error) {
+    return { ok: false, message: `Uitnodiging kon niet worden geaccepteerd: ${error.message}` }
+  }
+
+  return { ok: true, message: 'Uitnodiging geaccepteerd.' }
 }

@@ -1765,6 +1765,30 @@ th {
     #fff;
 }
 
+.account-hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  align-items: center;
+  background: #fff;
+}
+
+.account-hero h2 {
+  margin: 0 0 8px;
+  font-size: 32px;
+}
+
+.account-hero p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.account-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
 .subscription-hero h2 {
   margin: 0 0 8px;
   font-size: 34px;
@@ -1943,7 +1967,8 @@ th {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .subscription-hero {
+  .subscription-hero,
+  .account-hero {
     align-items: stretch;
     flex-direction: column;
   }

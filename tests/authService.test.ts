@@ -60,3 +60,27 @@ test('registration with session opens app after workspace bootstrap', async () =
   assert.equal(result.openApp, true)
   assert.deepEqual(calls, ['bootstrap_workspace'])
 })
+
+test('registration with invite accepts invite instead of creating workspace', async () => {
+  const calls: string[] = []
+  const result = await submitAuth({
+    auth: {
+      signUp: async () => ({ data: { session: { access_token: 'token' } }, error: null }),
+    },
+    rpc: async (name: string) => {
+      calls.push(name)
+      return { error: null }
+    },
+  } as never, 'register', {
+    email: 'team@brenqo.nl',
+    password: 'veilig-wachtwoord',
+    name: 'Team Gebruiker',
+    companyName: 'Wordt genegeerd',
+    redirectTo: 'https://brenqo.nl/',
+    inviteToken: 'invite-token',
+  })
+
+  assert.equal(result.ok, true)
+  assert.equal(result.openApp, true)
+  assert.deepEqual(calls, ['accept_company_invite'])
+})

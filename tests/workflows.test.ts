@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { createInviteEmail, createInviteLink, createInviteToken, safeDocumentFilename } from '../src/foundation/workflows.ts'
+import { createDocumentEmail, createInviteEmail, createInviteLink, createInviteToken, safeDocumentFilename } from '../src/foundation/workflows.ts'
 
 test('creates stable invite links and email copy', () => {
   const token = createInviteToken('Finance@Brenqo.nl', 'company-1', 123)
@@ -24,4 +24,19 @@ test('creates stable invite links and email copy', () => {
 test('creates safe document filenames', () => {
   assert.equal(safeDocumentFilename('factuur', '2026/0143'), 'factuur-2026-0143.html')
   assert.equal(safeDocumentFilename('offerte', 'OFF 2026 056', 'pdf'), 'offerte-off-2026-056.pdf')
+})
+
+test('creates customer facing document email copy', () => {
+  const email = createDocumentEmail({
+    type: 'invoice',
+    number: '2026-0143',
+    customerName: 'Studio Veldkamp',
+    companyName: 'Brenqo',
+    total: '€ 242,00',
+    dueOrValidDate: '2026-07-17',
+  })
+
+  assert.match(email.subject, /Factuur 2026-0143/)
+  assert.match(email.body, /Studio Veldkamp/)
+  assert.match(email.body, /Vervaldatum: 2026-07-17/)
 })

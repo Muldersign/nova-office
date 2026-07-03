@@ -37,10 +37,11 @@ import { calculateTotals, nextDocumentNumber, validateRequiredCustomer } from '.
 import { foundationRules, foundationSchema, tenantScopedTables } from './foundation/database'
 import { createPrintableDocumentHtml } from './foundation/documents'
 import { isUsageWithinPlan, planByName, planCatalog, usagePercentage, type PlanLimitKey, type PlanName, type PlanUsage } from './foundation/subscription'
-import { createInviteEmail, createInviteToken, safeDocumentFilename } from './foundation/workflows'
+import { createDocumentEmail, createInviteEmail, createInviteToken, safeDocumentFilename } from './foundation/workflows'
 import { submitAuth, type AuthMode } from './services/authService'
 import {
   deleteRemoteRecord,
+  createRemoteTeamInvite,
   loadRemoteWorkspace,
   upsertRemoteCompany,
   upsertRemoteCustomer,
@@ -82,6 +83,7 @@ type Screen =
   | 'tasks'
   | 'ai'
   | 'settings'
+  | 'account'
   | 'subscription'
 
 type InvoiceStatus = 'Concept' | 'Verzonden' | 'Betaald' | 'Verlopen'
@@ -485,6 +487,7 @@ const navItems = [
   ['roles', ShieldCheck, 'Rollen'],
   ['database', BookOpen, 'Database'],
   ['design-system', Package, 'Design system'],
+  ['account', Users, 'Account'],
   ['settings', Settings, 'Instellingen'],
   ['subscription', WalletCards, 'Abonnement'],
 ] as const
@@ -494,6 +497,7 @@ const sessionKeys = {
   authenticated: 'brenqo.authenticated',
   onboarded: 'brenqo.onboarded',
   activeCompanyId: 'brenqo.activeCompanyId',
+  pendingInviteToken: 'brenqo.pendingInviteToken',
 } as const
 const workspaceVersion = '2026-07-03-1'
 const workspaceKeys = {
@@ -578,6 +582,21 @@ function readActiveCompanyId() {
   return storedCompanies.some((company) => company.id === storedCompanyId) ? storedCompanyId ?? companyId : companyId
 }
 
+function readPendingInviteToken() {
+  if (typeof window === 'undefined') {
+    return ''
+  }
+
+  const inviteToken = new URLSearchParams(window.location.search).get('invite')
+  if (inviteToken) {
+    window.localStorage.setItem(sessionKeys.pendingInviteToken, inviteToken)
+    window.history.replaceState({}, '', window.location.pathname)
+    return inviteToken
+  }
+
+  return window.localStorage.getItem(sessionKeys.pendingInviteToken) ?? ''
+}
+
 function App() {
   const [workspaceLoading, setWorkspaceLoading] = useState(false)
   const [screen, setScreen] = useState<Screen>(() => {
@@ -605,6 +624,7 @@ function App() {
   const [globalSearch, setGlobalSearch] = useState('')
   const [syncMessage, setSyncMessage] = useState('')
   const [invitePreview, setInvitePreview] = useState<{ subject: string; body: string; link: string } | null>(null)
+  const [pendingInviteToken] = useState(readPendingInviteToken)
   const [invoiceRows, setInvoiceRows] = useState([
     { description: 'Adviespakket Groei', quantity: 1, price: 1250, vat: 21 },
     { description: 'Maandelijkse support', quantity: 1, price: 395, vat: 21 },
@@ -801,7 +821,7 @@ function App() {
   }
 
   if (screen === 'login') {
-    return <AuthScreen onLogin={completeLogin} />
+    return <AuthScreen pendingInviteToken={pendingInviteToken} onLogin={completeLogin} />
   }
 
   if (workspaceLoading) {
@@ -930,7 +950,7 @@ function App() {
     saveQuote({ ...quote, id: createRecordId('quo'), number: nextQuoteNumber, status: 'Concept', validUntil: addDaysIso(21) })
   }
 
-  const inviteTeamMember = (input: Pick<TeamMember, 'name' | 'email' | 'role'>) => {
+  const inviteTeamMember = async (input: Pick<TeamMember, 'name' | 'email' | 'role'>) => {
     const token = createInviteToken(input.email, activeCompanyId)
     const origin = window.location.origin
     const member: TeamMember = {
@@ -940,6 +960,11 @@ function App() {
       status: 'Uitgenodigd',
     }
     setTeamRecords((records) => [member, ...records])
+    await syncRemote((async () => createRemoteTeamInvite(getSupabaseClient()!, {
+      ...input,
+      token,
+      companyId: activeCompanyId,
+    })), 'Uitnodiging opgeslagen.')
     setInvitePreview(createInviteEmail({
       companyName: activeCompany.name,
       inviterName: activeCompany.email || activeCompany.name,
@@ -1115,7 +1140,7 @@ function App() {
         )}
 
         <div className="module-tabs" aria-label="MVP modules">
-          {(['dashboard', 'customers', 'invoices', 'quotes', 'products', 'companies', 'settings', 'subscription'] as Screen[]).map((module) => (
+          {(['dashboard', 'customers', 'invoices', 'quotes', 'products', 'companies', 'account', 'settings', 'subscription'] as Screen[]).map((module) => (
             <button key={module} className={screen === module ? 'active' : ''} onClick={() => navigate(module)}>
               {titleFor(module)}
             </button>
@@ -1299,7 +1324,7 @@ function App() {
           />
         )}
         {screen === 'products' && <Products products={companyProducts} activeCompanyId={activeCompanyId} onSave={(product) => requirePermission(canEditFinancial, () => { void saveProduct(product) })} onDelete={(productId) => requirePermission(canEditFinancial, () => { void deleteProduct(productId) })} />}
-        {screen === 'roles' && <Roles members={companyTeamMembers} canManage={canManageCompany} invitePreview={invitePreview} onInvite={(member) => requirePermission(canManageCompany, () => inviteTeamMember(member))} onRoleChange={(memberId, role) => requirePermission(canManageCompany, () => updateTeamRole(memberId, role))} />}
+        {screen === 'roles' && <Roles members={companyTeamMembers} canManage={canManageCompany} invitePreview={invitePreview} onInvite={(member) => requirePermission(canManageCompany, () => { void inviteTeamMember(member) })} onRoleChange={(memberId, role) => requirePermission(canManageCompany, () => updateTeamRole(memberId, role))} />}
         {screen === 'database' && <DatabaseFoundation />}
         {screen === 'design-system' && <DesignSystem />}
         {screen === 'settings' && (
@@ -1310,6 +1335,14 @@ function App() {
             onExport={exportWorkspace}
             onReset={() => requirePermission(canManageCompany, resetWorkspace)}
             onSaveSettings={(settings) => requirePermission(canManageCompany, () => { void saveSettings(settings) })}
+          />
+        )}
+        {screen === 'account' && (
+          <AccountPage
+            activeCompany={activeCompany}
+            members={companyTeamMembers}
+            onLogout={logout}
+            onNavigate={navigate}
           />
         )}
         {screen === 'subscription' && (
@@ -1345,7 +1378,7 @@ function WorkspaceLoading() {
   )
 }
 
-function AuthScreen({ onLogin }: { onLogin: () => Promise<void> }) {
+function AuthScreen({ pendingInviteToken, onLogin }: { pendingInviteToken: string; onLogin: () => Promise<void> }) {
   const [activeProduct, setActiveProduct] = useState('Facturen')
   const [demoName, setDemoName] = useState('')
   const [demoEmail, setDemoEmail] = useState('')
@@ -1409,11 +1442,15 @@ function AuthScreen({ onLogin }: { onLogin: () => Promise<void> }) {
       name: authName,
       companyName: authCompany,
       redirectTo: `${window.location.origin}/`,
+      inviteToken: pendingInviteToken,
     })
 
     setAuthBusy(false)
     setAuthMessage(result.message)
     if (result.openApp && authMode !== 'forgot') {
+      if (pendingInviteToken) {
+        window.localStorage.removeItem(sessionKeys.pendingInviteToken)
+      }
       await onLogin()
     }
   }
@@ -1600,6 +1637,7 @@ function AuthScreen({ onLogin }: { onLogin: () => Promise<void> }) {
             <span className="pill">Brenqo account</span>
             <h2>{authMode === 'login' ? 'Log in op je werkruimte' : authMode === 'forgot' ? 'Herstel je wachtwoord' : 'Maak je werkruimte aan'}</h2>
             <p>Deze flow gebruikt Supabase Auth zodra de live database is ingericht. Lokaal blijft een demo-sessie beschikbaar voor ontwikkeling.</p>
+            {pendingInviteToken && <p className="success-note">Uitnodiging gevonden. Na inloggen of registreren word je automatisch toegevoegd aan het juiste bedrijf.</p>}
           </div>
           <form className="auth-form" onSubmit={submitAuthForm}>
             {authMode === 'register' && (
@@ -2119,6 +2157,14 @@ function InvoiceDetail({
 }) {
   const totals = calculateTotals(invoice.items)
   const customer = customers.find((record) => record.id === invoice.customerId)
+  const documentEmail = createDocumentEmail({
+    type: 'invoice',
+    number: invoice.number,
+    customerName: customer?.name ?? 'klant',
+    companyName: company.name,
+    total: eur.format(invoice.amount),
+    dueOrValidDate: invoice.due,
+  })
   const download = () => downloadHtml(
     safeDocumentFilename('factuur', invoice.number),
     createPrintableDocumentHtml({
@@ -2183,6 +2229,7 @@ function InvoiceDetail({
         </div>
         <button className="primary full" onClick={() => window.print()}>Print/PDF</button>
         <button className="ghost full" onClick={download}><Download size={17} /> Download document</button>
+        <button className="ghost full" onClick={() => void navigator.clipboard?.writeText(`${documentEmail.subject}\n\n${documentEmail.body}`)}>Kopieer verzendmail</button>
       </aside>
     </div>
   )
@@ -2381,6 +2428,14 @@ function QuoteDetail({
 }) {
   const totals = calculateTotals(quote.items)
   const customer = customers.find((record) => record.id === quote.customerId)
+  const documentEmail = createDocumentEmail({
+    type: 'quote',
+    number: quote.number,
+    customerName: customer?.name ?? 'klant',
+    companyName: company.name,
+    total: eur.format(quote.amount),
+    dueOrValidDate: quote.validUntil,
+  })
   const download = () => downloadHtml(
     safeDocumentFilename('offerte', quote.number),
     createPrintableDocumentHtml({
@@ -2434,6 +2489,7 @@ function QuoteDetail({
           <button className="primary" onClick={() => onConvert(quote)}>Omzetten naar factuur</button>
           <button className="ghost" onClick={() => window.print()}>Print/PDF</button>
           <button className="ghost" onClick={download}><Download size={17} /> Download document</button>
+          <button className="ghost" onClick={() => void navigator.clipboard?.writeText(`${documentEmail.subject}\n\n${documentEmail.body}`)}>Kopieer verzendmail</button>
           <button className="ghost danger" onClick={onDelete}><Trash2 size={17} /> Verwijderen</button>
         </div>
       </section>
@@ -2914,6 +2970,50 @@ function SubscriptionPage({
   )
 }
 
+function AccountPage({
+  activeCompany,
+  members,
+  onLogout,
+  onNavigate,
+}: {
+  activeCompany: Company
+  members: TeamMember[]
+  onLogout: () => void
+  onNavigate: (screen: Screen) => void
+}) {
+  const activeMembers = members.filter((member) => member.status === 'Actief')
+  const invitedMembers = members.filter((member) => member.status === 'Uitgenodigd')
+
+  return (
+    <div className="content-grid">
+      <section className="panel wide account-hero">
+        <div>
+          <p className="eyebrow">Profiel en toegang</p>
+          <h2>{activeCompany.email || activeCompany.name}</h2>
+          <p>Je werkt nu in {activeCompany.name} als {activeCompany.role}.</p>
+        </div>
+        <div className="account-actions">
+          <button className="primary" onClick={() => onNavigate('roles')}>Team beheren</button>
+          <button className="ghost" onClick={onLogout}>Uitloggen</button>
+        </div>
+      </section>
+
+      <SettingsBlock icon={<Building2 />} title="Actieve administratie" text={`${activeCompany.name} - ${activeCompany.city || 'plaats nog niet ingevuld'} - ${activeCompany.plan}`} />
+      <SettingsBlock icon={<ShieldCheck />} title="Rol en rechten" text={`${activeCompany.role}: acties in facturen, offertes, instellingen en teams worden hierop afgestemd.`} />
+      <SettingsBlock icon={<Users />} title="Teamstatus" text={`${activeMembers.length} actief, ${invitedMembers.length} uitgenodigd.`} />
+      <SettingsBlock icon={<Bell />} title="Sessiestatus" text="Supabase Auth houdt de sessie actief. Uitloggen wist de lokale sessie en sluit de werkruimte." />
+
+      <section className="panel wide">
+        <PanelHeader title="Toegangsoverzicht" action="Naar rollen" onAction={() => onNavigate('roles')} />
+        <DataTable
+          columns={['Naam', 'E-mail', 'Rol', 'Status']}
+          rows={members.map((member) => [member.name, member.email, member.role, <Status key={member.id} label={member.status} />])}
+        />
+      </section>
+    </div>
+  )
+}
+
 function Brand() {
   return (
     <div className="brand">
@@ -3093,6 +3193,7 @@ function titleFor(screen: Screen) {
     reports: 'Rapportages',
     tasks: 'Taken',
     ai: 'AI Assistent',
+    account: 'Account',
     settings: 'Instellingen',
     subscription: 'Abonnement',
   }

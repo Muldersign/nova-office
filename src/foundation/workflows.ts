@@ -39,3 +39,35 @@ export function safeDocumentFilename(prefix: string, number: string, extension: 
   const safeNumber = number.replace(/[^a-z0-9-]+/gi, '-').replace(/^-+|-+$/g, '').toLowerCase()
   return `${prefix}-${safeNumber || 'document'}.${extension}`
 }
+
+export function createDocumentEmail(input: {
+  type: 'invoice' | 'quote'
+  number: string
+  customerName: string
+  companyName: string
+  total: string
+  dueOrValidDate: string
+}) {
+  const label = input.type === 'invoice' ? 'factuur' : 'offerte'
+  const dateLabel = input.type === 'invoice' ? 'Vervaldatum' : 'Geldig tot'
+
+  return {
+    subject: `${capitalize(label)} ${input.number} van ${input.companyName}`,
+    body: [
+      `Beste ${input.customerName},`,
+      '',
+      `Hierbij ontvang je ${label} ${input.number} van ${input.companyName}.`,
+      `Totaal: ${input.total}`,
+      `${dateLabel}: ${input.dueOrValidDate}`,
+      '',
+      'Heb je vragen? Reageer gerust op deze mail.',
+      '',
+      `Met vriendelijke groet,`,
+      input.companyName,
+    ].join('\n'),
+  }
+}
+
+function capitalize(value: string) {
+  return `${value.charAt(0).toUpperCase()}${value.slice(1)}`
+}

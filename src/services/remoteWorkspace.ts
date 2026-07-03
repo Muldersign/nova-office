@@ -37,10 +37,11 @@ export function isUuid(value: string) {
 }
 
 export async function loadRemoteWorkspace(client: SupabaseClient): Promise<RemoteWorkspace | null> {
-  const [companies, settings, memberships, customers, products, invoices, quotes, auditEvents] = await Promise.all([
+  const [companies, settings, memberships, invitations, customers, products, invoices, quotes, auditEvents] = await Promise.all([
     client.from('companies').select('*').order('created_at', { ascending: true }),
     client.from('company_settings').select('*'),
     client.from('company_memberships').select('*'),
+    client.from('team_invitations').select('*').eq('status', 'Open').order('created_at', { ascending: false }),
     client.from('customers').select('*').order('created_at', { ascending: false }),
     client.from('products').select('*').order('created_at', { ascending: false }),
     client.from('invoices').select('*, invoice_items(*)').order('created_at', { ascending: false }),
@@ -48,14 +49,14 @@ export async function loadRemoteWorkspace(client: SupabaseClient): Promise<Remot
     client.from('audit_events').select('*').order('created_at', { ascending: false }).limit(50),
   ])
 
-  if (companies.error || settings.error || memberships.error || customers.error || products.error || invoices.error || quotes.error || auditEvents.error) {
+  if (companies.error || settings.error || memberships.error || invitations.error || customers.error || products.error || invoices.error || quotes.error || auditEvents.error) {
     return null
   }
 
   return {
     companies: companies.data.map(toCompany),
     companySettings: settings.data.map(toCompanySettings),
-    teamMembers: memberships.data.map(toTeamMember),
+    teamMembers: [...memberships.data.map(toTeamMember), ...invitations.data.map(toTeamInvitation)],
     products: products.data.map(toProduct),
     customers: customers.data.map(toCustomer),
     invoices: invoices.data.map(toInvoice),
@@ -194,6 +195,27 @@ export async function deleteRemoteRecord(client: SupabaseClient, table: string, 
   throwIfRemoteError(error)
 }
 
+export async function createRemoteTeamInvite(client: SupabaseClient, input: Record<string, unknown>) {
+  if (!isUuid(String(input.companyId))) return
+  const { error } = await client.rpc('create_company_invite', {
+    target_company_id: input.companyId,
+    invitee_name: input.name,
+    invitee_email: input.email,
+    invite_role: input.role,
+    invite_token: input.token,
+  })
+  throwIfRemoteError(error)
+}
+
+export async function acceptRemoteTeamInvite(client: SupabaseClient, token: string) {
+  if (!token) return ''
+  const { data, error } = await client.rpc('accept_company_invite', {
+    invite_token: token,
+  })
+  throwIfRemoteError(error)
+  return String(data ?? '')
+}
+
 async function replaceLineItems(client: SupabaseClient, table: 'invoice_items' | 'quote_items', parentId: string, companyId: string, items: LineItem[]) {
   const deleted = await client.from(table).delete().eq('parent_id', parentId)
   throwIfRemoteError(deleted.error)
@@ -254,6 +276,17 @@ function toTeamMember(row: Record<string, unknown>) {
     email: '',
     role: row.role,
     status: row.status,
+  }
+}
+
+function toTeamInvitation(row: Record<string, unknown>) {
+  return {
+    id: row.token,
+    companyId: row.company_id,
+    name: row.invitee_name,
+    email: row.invitee_email,
+    role: row.role,
+    status: 'Uitgenodigd',
   }
 }
 
