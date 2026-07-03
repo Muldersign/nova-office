@@ -101,6 +101,23 @@ export async function upsertRemoteProduct(client: SupabaseClient, product: Recor
 
 export async function upsertRemoteCompany(client: SupabaseClient, company: Record<string, unknown>) {
   if (!isUuid(String(company.id))) return
+  const rpc = await client.rpc('save_company_workspace', {
+    target_company_id: company.id,
+    company_name: company.name,
+    kvk_number: company.chamber,
+    vat_number: company.vat,
+    company_address: company.address,
+    company_postal_code: company.postalCode,
+    company_city: company.city,
+    company_phone: company.phone,
+    company_email: company.email,
+    company_iban: company.iban,
+    company_bic: company.bic,
+    company_logo_url: company.logoUrl,
+    company_plan: company.plan,
+  })
+  if (!rpc.error) return
+
   const { error } = await client.from('companies').upsert({
     id: company.id,
     name: company.name,
@@ -116,7 +133,7 @@ export async function upsertRemoteCompany(client: SupabaseClient, company: Recor
     logo_url: company.logoUrl,
     plan: company.plan,
   })
-  throwIfRemoteError(error)
+  throwIfRemoteError(error ?? rpc.error)
 }
 
 export async function upsertRemoteSettings(client: SupabaseClient, settings: Record<string, unknown>) {

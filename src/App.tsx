@@ -472,16 +472,6 @@ const auditEvents: AuditEvent[] = [
   },
 ]
 
-const monthlyData = [
-  { month: 'Jan', omzet: 18400, kosten: 9200, winst: 9200 },
-  { month: 'Feb', omzet: 21300, kosten: 9800, winst: 11500 },
-  { month: 'Mrt', omzet: 19800, kosten: 10200, winst: 9600 },
-  { month: 'Apr', omzet: 24600, kosten: 11100, winst: 13500 },
-  { month: 'Mei', omzet: 22900, kosten: 10400, winst: 12500 },
-  { month: 'Jun', omzet: 27100, kosten: 11900, winst: 15200 },
-  { month: 'Jul', omzet: 15960, kosten: 6080, winst: 9880 },
-]
-
 const navItems = [
   ['dashboard', LayoutDashboard, 'Dashboard'],
   ['customers', Users, 'Klanten'],
@@ -614,22 +604,6 @@ function App() {
     { description: 'Maandelijkse support', quantity: 1, price: 395, vat: 21 },
   ])
 
-  const metrics = useMemo(() => {
-    const companyInvoices = invoiceRecords.filter((invoice) => invoice.companyId === activeCompanyId)
-    const open = companyInvoices.filter((invoice) => invoice.status !== 'Betaald').reduce((sum, invoice) => sum + invoice.amount, 0)
-    const overdue = companyInvoices.filter((invoice) => invoice.status === 'Verlopen').reduce((sum, invoice) => sum + invoice.amount, 0)
-    const revenue = monthlyData.at(-1)?.omzet ?? 0
-    const costs = monthlyData.at(-1)?.kosten ?? 0
-    return {
-      open,
-      overdue,
-      revenue,
-      costs,
-      profit: revenue - costs,
-      vatDue: 2786,
-    }
-  }, [activeCompanyId, invoiceRecords])
-
   const companyCustomers = customerRecords.filter((customer) => customer.companyId === activeCompanyId)
   const companyInvoices = invoiceRecords.filter((invoice) => invoice.companyId === activeCompanyId)
   const companyQuotes = quoteRecords.filter((quote) => quote.companyId === activeCompanyId)
@@ -647,6 +621,26 @@ function App() {
   const invoiceTotal = calculateTotals(invoiceRows).total
   const nextInvoiceNumber = nextDocumentNumber(companyInvoices.map((invoice) => invoice.number), activeSettings.invoicePrefix)
   const nextQuoteNumber = nextDocumentNumber(companyQuotes.map((quote) => quote.number), activeSettings.quotePrefix, 3)
+  const canEditFinancial = activeCompany.role !== 'Lezer'
+  const canManageCompany = activeCompany.role === 'Eigenaar' || activeCompany.role === 'Beheerder'
+  const dashboardChartData = useMemo(() => buildMonthlyInvoiceData(companyInvoices), [companyInvoices])
+  const metrics = useMemo(() => {
+    const currentMonth = todayIso().slice(0, 7)
+    const monthInvoices = companyInvoices.filter((invoice) => invoice.date.slice(0, 7) === currentMonth)
+    const revenue = monthInvoices.reduce((sum, invoice) => sum + invoice.amount, 0)
+    const open = companyInvoices.filter((invoice) => invoice.status !== 'Betaald').reduce((sum, invoice) => sum + invoice.amount, 0)
+    const overdue = companyInvoices.filter((invoice) => invoice.status === 'Verlopen').reduce((sum, invoice) => sum + invoice.amount, 0)
+    const vatDue = monthInvoices.reduce((sum, invoice) => sum + invoice.vat, 0)
+    const paid = companyInvoices.filter((invoice) => invoice.status === 'Betaald').reduce((sum, invoice) => sum + invoice.amount, 0)
+    return {
+      open,
+      overdue,
+      revenue,
+      costs: 0,
+      profit: paid,
+      vatDue,
+    }
+  }, [companyInvoices])
 
   const applyRemoteWorkspace = (remote: Awaited<ReturnType<typeof loadRemoteWorkspace>>, options: { openDashboard?: boolean } = {}) => {
     if (!remote || remote.companies.length === 0) {
@@ -792,6 +786,15 @@ function App() {
   const navigate = (next: Screen) => {
     setScreen(next)
     setMenuOpen(false)
+  }
+
+  const requirePermission = (allowed: boolean, action: () => void, message = 'Je rol heeft geen rechten voor deze actie.') => {
+    if (!allowed) {
+      setSyncMessage(message)
+      return
+    }
+
+    action()
   }
 
   const appendAudit = (companyId: string, action: string, entityType: AuditEvent['entityType'], entityId: string) => {
@@ -1078,16 +1081,17 @@ function App() {
             dashboardInvoices={filteredInvoices}
             dashboardQuotes={filteredQuotes}
             auditEvents={companyAuditEvents}
+            chartData={dashboardChartData}
             onNavigate={navigate}
           />
         )}
         {screen === 'customers' && (
           <Customers
             customers={filteredCustomers}
-            onAdd={() => {
+            onAdd={() => requirePermission(canEditFinancial, () => {
               setEditingCustomerId(null)
               navigate('customer-form')
-            }}
+            })}
             onSelect={(id) => {
               setSelectedCustomer(id)
               navigate('customer-detail')
@@ -1125,8 +1129,8 @@ function App() {
             invoices={companyInvoices}
             visibleInvoices={filteredInvoices}
             customers={companyCustomers}
-            onCreate={() => navigate('invoice-create')}
-            onMarkPaid={(id) => updateInvoiceStatus(id, 'Betaald')}
+            onCreate={() => requirePermission(canEditFinancial, () => navigate('invoice-create'))}
+            onMarkPaid={(id) => requirePermission(canEditFinancial, () => { void updateInvoiceStatus(id, 'Betaald') })}
             onSelect={(id) => {
               setSelectedInvoice(id)
               navigate('invoice-detail')
@@ -1144,7 +1148,7 @@ function App() {
             total={invoiceTotal}
             onRowsChange={setInvoiceRows}
             onBack={() => navigate('invoices')}
-            onSave={saveInvoice}
+            onSave={(invoice) => { void saveInvoice(invoice) }}
           />
         )}
         {screen === 'invoice-detail' && currentInvoice && (
@@ -1153,10 +1157,10 @@ function App() {
             customers={companyCustomers}
             company={activeCompany}
             onBack={() => navigate('invoices')}
-            onEdit={() => navigate('invoice-edit')}
-            onDuplicate={() => duplicateInvoice(currentInvoice)}
-            onDelete={() => deleteInvoice(currentInvoice)}
-            onStatusChange={updateInvoiceStatus}
+            onEdit={() => requirePermission(canEditFinancial, () => navigate('invoice-edit'))}
+            onDuplicate={() => requirePermission(canEditFinancial, () => { void duplicateInvoice(currentInvoice) })}
+            onDelete={() => requirePermission(canEditFinancial, () => { void deleteInvoice(currentInvoice) })}
+            onStatusChange={(invoiceId, status) => requirePermission(canEditFinancial, () => { void updateInvoiceStatus(invoiceId, status) })}
           />
         )}
         {screen === 'invoice-edit' && currentInvoice && (
@@ -1171,7 +1175,7 @@ function App() {
             invoice={currentInvoice}
             onRowsChange={setInvoiceRows}
             onBack={() => navigate('invoice-detail')}
-            onSave={saveInvoice}
+            onSave={(invoice) => { void saveInvoice(invoice) }}
           />
         )}
         {screen === 'quotes' && (
@@ -1179,7 +1183,7 @@ function App() {
             quotes={companyQuotes}
             visibleQuotes={filteredQuotes}
             customers={companyCustomers}
-            onCreate={() => navigate('quote-create')}
+            onCreate={() => requirePermission(canEditFinancial, () => navigate('quote-create'))}
             onSelect={(id) => {
               setSelectedQuote(id)
               navigate('quote-detail')
@@ -1194,7 +1198,7 @@ function App() {
             settings={activeSettings}
             products={companyProducts}
             onBack={() => navigate('quotes')}
-            onSave={saveQuote}
+            onSave={(quote) => { void saveQuote(quote) }}
           />
         )}
         {screen === 'quote-detail' && currentQuote && (
@@ -1203,11 +1207,11 @@ function App() {
             customers={companyCustomers}
             company={activeCompany}
             onBack={() => navigate('quotes')}
-            onEdit={() => navigate('quote-edit')}
-            onDuplicate={() => duplicateQuote(currentQuote)}
-            onDelete={() => deleteQuote(currentQuote)}
-            onConvert={convertQuoteToInvoice}
-            onStatusChange={updateQuoteStatus}
+            onEdit={() => requirePermission(canEditFinancial, () => navigate('quote-edit'))}
+            onDuplicate={() => requirePermission(canEditFinancial, () => { void duplicateQuote(currentQuote) })}
+            onDelete={() => requirePermission(canEditFinancial, () => { void deleteQuote(currentQuote) })}
+            onConvert={(quote) => requirePermission(canEditFinancial, () => { void convertQuoteToInvoice(quote) })}
+            onStatusChange={(quoteId, status) => requirePermission(canEditFinancial, () => { void updateQuoteStatus(quoteId, status) })}
           />
         )}
         {screen === 'quote-edit' && currentQuote && (
@@ -1219,7 +1223,7 @@ function App() {
             products={companyProducts}
             quote={currentQuote}
             onBack={() => navigate('quote-detail')}
-            onSave={saveQuote}
+            onSave={(quote) => { void saveQuote(quote) }}
           />
         )}
         {screen === 'companies' && (
@@ -1227,25 +1231,25 @@ function App() {
             companies={companyRecords}
             activeCompanyId={activeCompanyId}
             onSelect={setActiveCompanyId}
-            onAdd={() => {
+            onAdd={() => requirePermission(canManageCompany, () => {
               setEditingCompanyId(null)
               navigate('company-form')
-            }}
-            onEdit={(id) => {
+            })}
+            onEdit={(id) => requirePermission(canManageCompany, () => {
               setEditingCompanyId(id)
               navigate('company-form')
-            }}
+            })}
           />
         )}
         {screen === 'company-form' && (
           <CompanyForm
             company={editingCompanyId ? companyRecords.find((company) => company.id === editingCompanyId) : undefined}
             onCancel={() => navigate('companies')}
-            onSave={saveCompany}
+            onSave={(company) => { void saveCompany(company) }}
           />
         )}
-        {screen === 'products' && <Products products={companyProducts} activeCompanyId={activeCompanyId} onSave={saveProduct} onDelete={deleteProduct} />}
-        {screen === 'roles' && <Roles members={companyTeamMembers} onInvite={inviteTeamMember} onRoleChange={updateTeamRole} />}
+        {screen === 'products' && <Products products={companyProducts} activeCompanyId={activeCompanyId} onSave={(product) => requirePermission(canEditFinancial, () => { void saveProduct(product) })} onDelete={(productId) => requirePermission(canEditFinancial, () => { void deleteProduct(productId) })} />}
+        {screen === 'roles' && <Roles members={companyTeamMembers} canManage={canManageCompany} onInvite={(member) => requirePermission(canManageCompany, () => inviteTeamMember(member))} onRoleChange={(memberId, role) => requirePermission(canManageCompany, () => updateTeamRole(memberId, role))} />}
         {screen === 'database' && <DatabaseFoundation />}
         {screen === 'design-system' && <DesignSystem />}
         {screen === 'settings' && (
@@ -1254,8 +1258,8 @@ function App() {
             settings={activeSettings}
             auditEvents={companyAuditEvents}
             onExport={exportWorkspace}
-            onReset={resetWorkspace}
-            onSaveSettings={saveSettings}
+            onReset={() => requirePermission(canManageCompany, resetWorkspace)}
+            onSaveSettings={(settings) => requirePermission(canManageCompany, () => { void saveSettings(settings) })}
           />
         )}
       </main>
@@ -1621,6 +1625,7 @@ function Dashboard({
   dashboardInvoices,
   dashboardQuotes,
   auditEvents,
+  chartData,
   onNavigate,
 }: {
   metrics: Record<string, number>
@@ -1628,23 +1633,25 @@ function Dashboard({
   dashboardInvoices: Invoice[]
   dashboardQuotes: Quote[]
   auditEvents: AuditEvent[]
+  chartData: Array<{ month: string; omzet: number; winst: number }>
   onNavigate: (screen: Screen) => void
 }) {
   return (
     <div className="content-grid">
       <section className="kpi-grid">
         <Metric label="Omzet deze maand" value={eur.format(metrics.revenue)} trend="juli" />
-        <Metric label="Openstaande facturen" value={eur.format(metrics.open)} trend="+12%" />
+        <Metric label="Openstaande facturen" value={eur.format(metrics.open)} trend={`${dashboardInvoices.filter((invoice) => invoice.status !== 'Betaald').length} open`} />
         <Metric label="Verlopen facturen" value={eur.format(metrics.overdue)} trend="actie nodig" />
         <Metric label="Aantal klanten" value={String(dashboardCustomers.length)} trend="tenant-safe" />
         <Metric label="Concept offertes" value={String(dashboardQuotes.filter((quote) => quote.status === 'Concept').length)} trend="workflow" />
+        <Metric label="BTW deze maand" value={eur.format(metrics.vatDue)} trend="voorbereid" />
       </section>
 
       <section className="panel wide">
         <PanelHeader title="MVP-activiteit" action="Bekijk facturen" onAction={() => onNavigate('invoices')} />
         <div className="chart">
           <ResponsiveContainer>
-            <AreaChart data={monthlyData}>
+            <AreaChart data={chartData}>
               <CartesianGrid strokeDasharray="3 3" vertical={false} />
               <XAxis dataKey="month" />
               <YAxis />
@@ -2546,10 +2553,12 @@ function Products({
 
 function Roles({
   members,
+  canManage,
   onInvite,
   onRoleChange,
 }: {
   members: TeamMember[]
+  canManage: boolean
   onInvite: (member: Pick<TeamMember, 'name' | 'email' | 'role'>) => void
   onRoleChange: (memberId: string, role: CompanyRole) => void
 }) {
@@ -2584,7 +2593,7 @@ function Roles({
           rows={members.map((member) => [
             member.name,
             member.email,
-            <select key={member.id} value={member.role} onChange={(event) => onRoleChange(member.id, event.target.value as CompanyRole)}>
+            <select key={member.id} value={member.role} disabled={!canManage} onChange={(event) => onRoleChange(member.id, event.target.value as CompanyRole)}>
               <option>Eigenaar</option>
               <option>Beheerder</option>
               <option>Financieel medewerker</option>
@@ -2596,13 +2605,14 @@ function Roles({
       </section>
       <section className="panel wide">
         <PanelHeader title="Teamlid uitnodigen" />
+        {!canManage && <p className="form-error">Alleen eigenaar en beheerder kunnen teamleden uitnodigen of rollen wijzigen.</p>}
         {error && <p className="form-error">{error}</p>}
         <div className="form-grid">
           <label>Naam<input value={name} onChange={(event) => setName(event.target.value)} /></label>
           <label>E-mailadres<input value={email} onChange={(event) => setEmail(event.target.value)} /></label>
           <label>Rol<select value={role} onChange={(event) => setRole(event.target.value as CompanyRole)}><option>Beheerder</option><option>Financieel medewerker</option><option>Lezer</option></select></label>
         </div>
-        <button className="primary" onClick={invite}>Uitnodiging klaarzetten</button>
+        <button className="primary" disabled={!canManage} onClick={invite}>Uitnodiging klaarzetten</button>
       </section>
       <SettingsBlock icon={<ShieldCheck />} title="RBAC-principe" text="Elke actie wordt straks gecontroleerd op user_id, company_id en rol." />
       <SettingsBlock icon={<Users />} title="Teamstructuur" text="Een gebruiker kan meerdere bedrijven beheren met per bedrijf een andere rol." />
@@ -2789,6 +2799,25 @@ function addDaysIso(days: number) {
   const date = new Date()
   date.setDate(date.getDate() + days)
   return date.toISOString().slice(0, 10)
+}
+
+function buildMonthlyInvoiceData(sourceInvoices: Invoice[]) {
+  const formatter = new Intl.DateTimeFormat('nl-NL', { month: 'short' })
+  return Array.from({ length: 6 }, (_, index) => {
+    const date = new Date()
+    date.setDate(1)
+    date.setMonth(date.getMonth() - (5 - index))
+    const key = date.toISOString().slice(0, 7)
+    const monthInvoices = sourceInvoices.filter((invoice) => invoice.date.slice(0, 7) === key)
+    const omzet = monthInvoices.reduce((sum, invoice) => sum + invoice.amount, 0)
+    const winst = monthInvoices.filter((invoice) => invoice.status === 'Betaald').reduce((sum, invoice) => sum + invoice.amount, 0)
+
+    return {
+      month: formatter.format(date),
+      omzet,
+      winst,
+    }
+  })
 }
 
 function defaultSettingsFor(companyId: string): CompanySettings {
