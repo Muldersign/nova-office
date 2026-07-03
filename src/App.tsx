@@ -15,6 +15,7 @@ import {
   BriefcaseBusiness,
   Building2,
   Check,
+  Copy,
   Download,
   FileCheck2,
   FilePlus2,
@@ -28,6 +29,7 @@ import {
   Settings,
   ShieldCheck,
   Sparkles,
+  Trash2,
   Users,
   WalletCards,
   X,
@@ -46,9 +48,11 @@ type Screen =
   | 'customer-detail'
   | 'invoices'
   | 'invoice-create'
+  | 'invoice-edit'
   | 'invoice-detail'
   | 'quotes'
   | 'quote-create'
+  | 'quote-edit'
   | 'quote-detail'
   | 'companies'
   | 'company-form'
@@ -70,6 +74,7 @@ type InvoiceStatus = 'Concept' | 'Verzonden' | 'Betaald' | 'Verlopen'
 type QuoteStatus = 'Concept' | 'Verzonden' | 'Geaccepteerd' | 'Afgewezen'
 type CompanyRole = 'Eigenaar' | 'Beheerder' | 'Financieel medewerker' | 'Lezer'
 type CompanyPlan = 'NOVA Start' | 'NOVA ZZP' | 'NOVA MKB' | 'NOVA Enterprise'
+type TeamStatus = 'Actief' | 'Uitgenodigd'
 
 type Company = {
   id: string
@@ -79,6 +84,23 @@ type Company = {
   chamber: string
   vat: string
   city: string
+}
+
+type CompanySettings = {
+  companyId: string
+  defaultVat: number
+  paymentTermDays: number
+  invoicePrefix: string
+  quotePrefix: string
+}
+
+type TeamMember = {
+  id: string
+  companyId: string
+  name: string
+  email: string
+  role: CompanyRole
+  status: TeamStatus
 }
 
 type Customer = {
@@ -292,6 +314,17 @@ const invoices: Invoice[] = [
   },
 ]
 
+const companySettings: CompanySettings[] = [
+  { companyId: 'comp_nova_demo', defaultVat: 21, paymentTermDays: 14, invoicePrefix: '2026', quotePrefix: 'OFF-2026' },
+  { companyId: 'comp_orbit_studio', defaultVat: 21, paymentTermDays: 30, invoicePrefix: '2026', quotePrefix: 'OFF-2026' },
+]
+
+const teamMembers: TeamMember[] = [
+  { id: 'mem_owner', companyId, name: 'Glen Mulder', email: 'glen@muldersign.nl', role: 'Eigenaar', status: 'Actief' },
+  { id: 'mem_finance', companyId, name: 'Financieel team', email: 'finance@novaoffice.nl', role: 'Financieel medewerker', status: 'Uitgenodigd' },
+  { id: 'mem_orbit', companyId: 'comp_orbit_studio', name: 'Orbit beheer', email: 'beheer@orbitstudio.nl', role: 'Beheerder', status: 'Actief' },
+]
+
 const quotes: Quote[] = [
   {
     id: 'quo_01',
@@ -398,6 +431,8 @@ const workspaceVersion = '2026-07-03-1'
 const workspaceKeys = {
   version: 'nova.workspace.version',
   companies: 'nova.workspace.companies',
+  companySettings: 'nova.workspace.companySettings',
+  teamMembers: 'nova.workspace.teamMembers',
   customers: 'nova.workspace.customers',
   invoices: 'nova.workspace.invoices',
   quotes: 'nova.workspace.quotes',
@@ -467,6 +502,8 @@ function App() {
   })
   const [activeCompanyId, setActiveCompanyIdState] = useState(readActiveCompanyId)
   const [companyRecords, setCompanyRecords] = useState<Company[]>(() => readWorkspaceRecords(workspaceKeys.companies, companies))
+  const [settingsRecords, setSettingsRecords] = useState<CompanySettings[]>(() => readWorkspaceRecords(workspaceKeys.companySettings, companySettings))
+  const [teamRecords, setTeamRecords] = useState<TeamMember[]>(() => readWorkspaceRecords(workspaceKeys.teamMembers, teamMembers))
   const [customerRecords, setCustomerRecords] = useState<Customer[]>(() => readWorkspaceRecords(workspaceKeys.customers, customers))
   const [invoiceRecords, setInvoiceRecords] = useState<Invoice[]>(() => readWorkspaceRecords(workspaceKeys.invoices, invoices))
   const [quoteRecords, setQuoteRecords] = useState<Quote[]>(() => readWorkspaceRecords(workspaceKeys.quotes, quotes))
@@ -503,20 +540,30 @@ function App() {
   const companyInvoices = invoiceRecords.filter((invoice) => invoice.companyId === activeCompanyId)
   const companyQuotes = quoteRecords.filter((quote) => quote.companyId === activeCompanyId)
   const companyAuditEvents = auditRecords.filter((event) => event.companyId === activeCompanyId)
+  const companyTeamMembers = teamRecords.filter((member) => member.companyId === activeCompanyId)
   const filteredCustomers = companyCustomers.filter((customer) => customerMatches(customer, globalSearch))
   const filteredInvoices = companyInvoices.filter((invoice) => invoiceMatches(invoice, companyCustomers, globalSearch))
   const filteredQuotes = companyQuotes.filter((quote) => quoteMatches(quote, companyCustomers, globalSearch))
   const activeCompany = companyRecords.find((company) => company.id === activeCompanyId) ?? companyRecords[0] ?? companies[0]
+  const activeSettings = settingsRecords.find((settings) => settings.companyId === activeCompanyId) ?? defaultSettingsFor(activeCompanyId)
   const currentCustomer = companyCustomers.find((customer) => customer.id === selectedCustomer) ?? companyCustomers[0] ?? customers[0]
   const currentInvoice = companyInvoices.find((invoice) => invoice.id === selectedInvoice) ?? companyInvoices[0]
   const currentQuote = companyQuotes.find((quote) => quote.id === selectedQuote) ?? companyQuotes[0]
   const invoiceTotal = invoiceRows.reduce((sum, row) => sum + row.quantity * row.price * (1 + row.vat / 100), 0)
-  const nextInvoiceNumber = nextDocumentNumber(companyInvoices.map((invoice) => invoice.number), '2026')
-  const nextQuoteNumber = nextDocumentNumber(companyQuotes.map((quote) => quote.number), 'OFF-2026', 3)
+  const nextInvoiceNumber = nextDocumentNumber(companyInvoices.map((invoice) => invoice.number), activeSettings.invoicePrefix)
+  const nextQuoteNumber = nextDocumentNumber(companyQuotes.map((quote) => quote.number), activeSettings.quotePrefix, 3)
 
   useEffect(() => {
     writeWorkspaceRecords(workspaceKeys.companies, companyRecords)
   }, [companyRecords])
+
+  useEffect(() => {
+    writeWorkspaceRecords(workspaceKeys.companySettings, settingsRecords)
+  }, [settingsRecords])
+
+  useEffect(() => {
+    writeWorkspaceRecords(workspaceKeys.teamMembers, teamRecords)
+  }, [teamRecords])
 
   useEffect(() => {
     writeWorkspaceRecords(workspaceKeys.customers, customerRecords)
@@ -598,22 +645,70 @@ function App() {
     setCompanyRecords((records) => (exists ? records.map((record) => (record.id === company.id ? company : record)) : [company, ...records]))
     appendAudit(company.id, `${exists ? 'Bedrijf bijgewerkt' : 'Bedrijf toegevoegd'}: ${company.name}`, 'company', company.id)
     setEditingCompanyId(null)
+    setSettingsRecords((records) => records.some((record) => record.companyId === company.id) ? records : [defaultSettingsFor(company.id), ...records])
     setActiveCompanyId(company.id)
     navigate('companies')
   }
 
   const saveInvoice = (invoice: Invoice) => {
-    setInvoiceRecords((records) => [invoice, ...records])
-    appendAudit(invoice.companyId, `Factuur ${invoice.number} aangemaakt voor ${nameFor(invoice.customerId, customerRecords)}`, 'invoice', invoice.id)
+    const exists = invoiceRecords.some((record) => record.id === invoice.id)
+    setInvoiceRecords((records) => (exists ? records.map((record) => (record.id === invoice.id ? invoice : record)) : [invoice, ...records]))
+    appendAudit(invoice.companyId, `Factuur ${invoice.number} ${exists ? 'bijgewerkt' : 'aangemaakt'} voor ${nameFor(invoice.customerId, customerRecords)}`, 'invoice', invoice.id)
     setSelectedInvoice(invoice.id)
     navigate('invoice-detail')
   }
 
   const saveQuote = (quote: Quote) => {
-    setQuoteRecords((records) => [quote, ...records])
-    appendAudit(quote.companyId, `Offerte ${quote.number} aangemaakt voor ${nameFor(quote.customerId, customerRecords)}`, 'quote', quote.id)
+    const exists = quoteRecords.some((record) => record.id === quote.id)
+    setQuoteRecords((records) => (exists ? records.map((record) => (record.id === quote.id ? quote : record)) : [quote, ...records]))
+    appendAudit(quote.companyId, `Offerte ${quote.number} ${exists ? 'bijgewerkt' : 'aangemaakt'} voor ${nameFor(quote.customerId, customerRecords)}`, 'quote', quote.id)
     setSelectedQuote(quote.id)
     navigate('quote-detail')
+  }
+
+  const deleteInvoice = (invoice: Invoice) => {
+    setInvoiceRecords((records) => records.filter((record) => record.id !== invoice.id))
+    appendAudit(invoice.companyId, `Factuur ${invoice.number} verwijderd`, 'invoice', invoice.id)
+    setSelectedInvoice(companyInvoices.find((record) => record.id !== invoice.id)?.id ?? invoices[0].id)
+    navigate('invoices')
+  }
+
+  const deleteQuote = (quote: Quote) => {
+    setQuoteRecords((records) => records.filter((record) => record.id !== quote.id))
+    appendAudit(quote.companyId, `Offerte ${quote.number} verwijderd`, 'quote', quote.id)
+    setSelectedQuote(companyQuotes.find((record) => record.id !== quote.id)?.id ?? quotes[0].id)
+    navigate('quotes')
+  }
+
+  const duplicateInvoice = (invoice: Invoice) => {
+    saveInvoice({ ...invoice, id: `inv_${Date.now()}`, number: nextInvoiceNumber, status: 'Concept', date: todayIso(), due: addDaysIso(activeSettings.paymentTermDays) })
+  }
+
+  const duplicateQuote = (quote: Quote) => {
+    saveQuote({ ...quote, id: `quo_${Date.now()}`, number: nextQuoteNumber, status: 'Concept', validUntil: addDaysIso(21) })
+  }
+
+  const inviteTeamMember = (input: Pick<TeamMember, 'name' | 'email' | 'role'>) => {
+    const member: TeamMember = {
+      ...input,
+      id: `mem_${Date.now()}`,
+      companyId: activeCompanyId,
+      status: 'Uitgenodigd',
+    }
+    setTeamRecords((records) => [member, ...records])
+    appendAudit(activeCompanyId, `Teamlid uitgenodigd: ${member.email}`, 'company', member.id)
+  }
+
+  const updateTeamRole = (memberId: string, role: CompanyRole) => {
+    setTeamRecords((records) => records.map((record) => (record.id === memberId ? { ...record, role } : record)))
+    appendAudit(activeCompanyId, 'Rol van teamlid bijgewerkt', 'company', memberId)
+  }
+
+  const saveSettings = (settings: CompanySettings) => {
+    setSettingsRecords((records) => (records.some((record) => record.companyId === settings.companyId)
+      ? records.map((record) => (record.companyId === settings.companyId ? settings : record))
+      : [settings, ...records]))
+    appendAudit(settings.companyId, 'Bedrijfsinstellingen bijgewerkt', 'settings', settings.companyId)
   }
 
   const updateInvoiceStatus = (invoiceId: string, status: InvoiceStatus) => {
@@ -653,6 +748,8 @@ function App() {
   const resetWorkspace = () => {
     resetWorkspaceStorage()
     setCompanyRecords(companies)
+    setSettingsRecords(companySettings)
+    setTeamRecords(teamMembers)
     setCustomerRecords(customers)
     setInvoiceRecords(invoices)
     setQuoteRecords(quotes)
@@ -668,6 +765,8 @@ function App() {
       exportedAt: new Date().toISOString(),
       activeCompanyId,
       companies: companyRecords,
+      companySettings: settingsRecords,
+      teamMembers: teamRecords,
       customers: customerRecords,
       invoices: invoiceRecords,
       quotes: quoteRecords,
@@ -804,6 +903,7 @@ function App() {
             activeCompanyId={activeCompanyId}
             customers={companyCustomers}
             number={nextInvoiceNumber}
+            settings={activeSettings}
             rows={invoiceRows}
             total={invoiceTotal}
             onRowsChange={setInvoiceRows}
@@ -812,7 +912,30 @@ function App() {
           />
         )}
         {screen === 'invoice-detail' && currentInvoice && (
-          <InvoiceDetail invoice={currentInvoice} customers={companyCustomers} company={activeCompany} onBack={() => navigate('invoices')} onStatusChange={updateInvoiceStatus} />
+          <InvoiceDetail
+            invoice={currentInvoice}
+            customers={companyCustomers}
+            company={activeCompany}
+            onBack={() => navigate('invoices')}
+            onEdit={() => navigate('invoice-edit')}
+            onDuplicate={() => duplicateInvoice(currentInvoice)}
+            onDelete={() => deleteInvoice(currentInvoice)}
+            onStatusChange={updateInvoiceStatus}
+          />
+        )}
+        {screen === 'invoice-edit' && currentInvoice && (
+          <InvoiceCreate
+            activeCompanyId={activeCompanyId}
+            customers={companyCustomers}
+            number={currentInvoice.number}
+            settings={activeSettings}
+            rows={currentInvoice.items}
+            total={currentInvoice.amount}
+            invoice={currentInvoice}
+            onRowsChange={setInvoiceRows}
+            onBack={() => navigate('invoice-detail')}
+            onSave={saveInvoice}
+          />
         )}
         {screen === 'quotes' && (
           <Quotes
@@ -831,12 +954,34 @@ function App() {
             activeCompanyId={activeCompanyId}
             customers={companyCustomers}
             number={nextQuoteNumber}
+            settings={activeSettings}
             onBack={() => navigate('quotes')}
             onSave={saveQuote}
           />
         )}
         {screen === 'quote-detail' && currentQuote && (
-          <QuoteDetail quote={currentQuote} customers={companyCustomers} company={activeCompany} onBack={() => navigate('quotes')} onConvert={convertQuoteToInvoice} onStatusChange={updateQuoteStatus} />
+          <QuoteDetail
+            quote={currentQuote}
+            customers={companyCustomers}
+            company={activeCompany}
+            onBack={() => navigate('quotes')}
+            onEdit={() => navigate('quote-edit')}
+            onDuplicate={() => duplicateQuote(currentQuote)}
+            onDelete={() => deleteQuote(currentQuote)}
+            onConvert={convertQuoteToInvoice}
+            onStatusChange={updateQuoteStatus}
+          />
+        )}
+        {screen === 'quote-edit' && currentQuote && (
+          <QuoteCreate
+            activeCompanyId={activeCompanyId}
+            customers={companyCustomers}
+            number={currentQuote.number}
+            settings={activeSettings}
+            quote={currentQuote}
+            onBack={() => navigate('quote-detail')}
+            onSave={saveQuote}
+          />
         )}
         {screen === 'companies' && (
           <Companies
@@ -860,15 +1005,17 @@ function App() {
             onSave={saveCompany}
           />
         )}
-        {screen === 'roles' && <Roles />}
+        {screen === 'roles' && <Roles members={companyTeamMembers} onInvite={inviteTeamMember} onRoleChange={updateTeamRole} />}
         {screen === 'database' && <DatabaseFoundation />}
         {screen === 'design-system' && <DesignSystem />}
         {screen === 'settings' && (
           <SettingsPage
             activeCompany={activeCompany}
+            settings={activeSettings}
             auditEvents={companyAuditEvents}
             onExport={exportWorkspace}
             onReset={resetWorkspace}
+            onSaveSettings={saveSettings}
           />
         )}
       </main>
@@ -1203,8 +1350,10 @@ function InvoiceCreate({
   activeCompanyId,
   customers,
   number,
+  settings,
   rows,
-  total,
+  total: initialTotal,
+  invoice,
   onRowsChange,
   onBack,
   onSave,
@@ -1212,29 +1361,40 @@ function InvoiceCreate({
   activeCompanyId: string
   customers: Customer[]
   number: string
+  settings: CompanySettings
   rows: InvoiceRow[]
   total: number
+  invoice?: Invoice
   onRowsChange: (rows: InvoiceRow[]) => void
   onBack: () => void
   onSave: (invoice: Invoice) => void
 }) {
-  const [customerId, setCustomerId] = useState(customers[0]?.id ?? '')
-  const [invoiceDate, setInvoiceDate] = useState(todayIso())
-  const [dueDate, setDueDate] = useState(addDaysIso(14))
-  const [status, setStatus] = useState<InvoiceStatus>('Concept')
+  const [customerId, setCustomerId] = useState(invoice?.customerId ?? customers[0]?.id ?? '')
+  const [invoiceDate, setInvoiceDate] = useState(invoice?.date ?? todayIso())
+  const [dueDate, setDueDate] = useState(invoice?.due ?? addDaysIso(settings.paymentTermDays))
+  const [status, setStatus] = useState<InvoiceStatus>(invoice?.status ?? 'Concept')
+  const [editableRows, setEditableRows] = useState<InvoiceRow[]>(invoice?.items ?? rows)
   const [error, setError] = useState('')
-  const addRow = () => onRowsChange([...rows, { description: 'Nieuwe regel', quantity: 1, price: 0, vat: 21 }])
-  const subtotal = rows.reduce((sum, row) => sum + row.quantity * row.price, 0)
+  const total = invoice ? calculateTotals(editableRows).total : initialTotal
+  const subtotal = editableRows.reduce((sum, row) => sum + row.quantity * row.price, 0)
   const vatTotal = total - subtotal
-  const removeRow = (index: number) => onRowsChange(rows.filter((_, rowIndex) => rowIndex !== index))
+  const addRow = () => setEditableRows([...editableRows, { description: 'Nieuwe regel', quantity: 1, price: 0, vat: settings.defaultVat }])
+  const changeRows = (nextRows: InvoiceRow[]) => {
+    setEditableRows(nextRows)
+    if (!invoice) {
+      onRowsChange(nextRows)
+    }
+  }
+  const removeRow = (index: number) => changeRows(editableRows.filter((_, rowIndex) => rowIndex !== index))
   const save = () => {
-    if (!customerId || rows.some((row) => !row.description.trim() || row.quantity <= 0 || row.price < 0)) {
+    if (!customerId || editableRows.some((row) => !row.description.trim() || row.quantity <= 0 || row.price < 0)) {
       setError('Kies een klant en vul alle factuurregels correct in.')
       return
     }
 
+    onRowsChange(editableRows)
     onSave({
-      id: `inv_${Date.now()}`,
+      id: invoice?.id ?? `inv_${Date.now()}`,
       companyId: activeCompanyId,
       customerId,
       number,
@@ -1243,7 +1403,7 @@ function InvoiceCreate({
       amount: total,
       vat: vatTotal,
       status,
-      items: rows,
+      items: editableRows,
     })
   }
 
@@ -1251,7 +1411,7 @@ function InvoiceCreate({
     <div className="invoice-builder">
       <section className="panel">
         <button className="table-link" onClick={onBack}>Terug naar facturen</button>
-        <PanelHeader title="Nieuwe factuur" />
+        <PanelHeader title={invoice ? 'Factuur bewerken' : 'Nieuwe factuur'} />
         {error && <p className="form-error">{error}</p>}
         <div className="form-grid">
           <label>Klant<select value={customerId} onChange={(event) => setCustomerId(event.target.value)}>{customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}</option>)}</select></label>
@@ -1272,10 +1432,10 @@ function InvoiceCreate({
         <div className="line-items">
           {rows.map((row, index) => (
             <div className="line-row" key={`${row.description}-${index}`}>
-              <input value={row.description} onChange={(event) => updateRow(rows, onRowsChange, index, 'description', event.target.value)} />
-              <input type="number" value={row.quantity} onChange={(event) => updateRow(rows, onRowsChange, index, 'quantity', Number(event.target.value))} />
-              <input type="number" value={row.price} onChange={(event) => updateRow(rows, onRowsChange, index, 'price', Number(event.target.value))} />
-              <select value={row.vat} onChange={(event) => updateRow(rows, onRowsChange, index, 'vat', Number(event.target.value))}><option value={21}>21%</option><option value={9}>9%</option><option value={0}>0%</option></select>
+              <input value={row.description} onChange={(event) => updateRow(editableRows, changeRows, index, 'description', event.target.value)} />
+              <input type="number" value={row.quantity} onChange={(event) => updateRow(editableRows, changeRows, index, 'quantity', Number(event.target.value))} />
+              <input type="number" value={row.price} onChange={(event) => updateRow(editableRows, changeRows, index, 'price', Number(event.target.value))} />
+              <select value={row.vat} onChange={(event) => updateRow(editableRows, changeRows, index, 'vat', Number(event.target.value))}><option value={21}>21%</option><option value={9}>9%</option><option value={0}>0%</option></select>
               <strong>{eur.format(row.quantity * row.price * (1 + row.vat / 100))}</strong>
               <button className="icon-button compact" onClick={() => removeRow(index)} aria-label="Regel verwijderen"><X size={16} /></button>
             </div>
@@ -1318,12 +1478,18 @@ function InvoiceDetail({
   customers,
   company,
   onBack,
+  onEdit,
+  onDuplicate,
+  onDelete,
   onStatusChange,
 }: {
   invoice: Invoice
   customers: Customer[]
   company: Company
   onBack: () => void
+  onEdit: () => void
+  onDuplicate: () => void
+  onDelete: () => void
   onStatusChange: (invoiceId: string, status: InvoiceStatus) => void
 }) {
   const totals = calculateTotals(invoice.items)
@@ -1364,11 +1530,14 @@ function InvoiceDetail({
           rows={invoice.items.map((item) => [item.description, String(item.quantity), eur.format(item.price), `${item.vat}%`, eur.format(item.quantity * item.price * (1 + item.vat / 100))])}
         />
         <div className="invoice-actions">
+          <button className="primary" onClick={onEdit}>Bewerken</button>
+          <button className="ghost" onClick={onDuplicate}><Copy size={17} /> Dupliceren</button>
           {(['Concept', 'Verzonden', 'Betaald', 'Verlopen'] as InvoiceStatus[]).map((status) => (
             <button key={status} className={invoice.status === status ? 'primary' : 'ghost'} onClick={() => onStatusChange(invoice.id, status)}>
               {status}
             </button>
           ))}
+          <button className="ghost danger" onClick={onDelete}><Trash2 size={17} /> Verwijderen</button>
         </div>
       </section>
       <aside className="panel preview">
@@ -1435,19 +1604,23 @@ function QuoteCreate({
   activeCompanyId,
   customers,
   number,
+  settings,
+  quote,
   onBack,
   onSave,
 }: {
   activeCompanyId: string
   customers: Customer[]
   number: string
+  settings: CompanySettings
+  quote?: Quote
   onBack: () => void
   onSave: (quote: Quote) => void
 }) {
-  const [customerId, setCustomerId] = useState(customers[0]?.id ?? '')
-  const [validUntil, setValidUntil] = useState(addDaysIso(21))
-  const [status, setStatus] = useState<QuoteStatus>('Concept')
-  const [rows, setRows] = useState<InvoiceRow[]>([{ description: 'Nieuw voorstel', quantity: 1, price: 1500, vat: 21 }])
+  const [customerId, setCustomerId] = useState(quote?.customerId ?? customers[0]?.id ?? '')
+  const [validUntil, setValidUntil] = useState(quote?.validUntil ?? addDaysIso(21))
+  const [status, setStatus] = useState<QuoteStatus>(quote?.status ?? 'Concept')
+  const [rows, setRows] = useState<InvoiceRow[]>(quote?.items ?? [{ description: 'Nieuw voorstel', quantity: 1, price: 1500, vat: settings.defaultVat }])
   const [error, setError] = useState('')
   const totals = calculateTotals(rows)
   const addRow = () => setRows([...rows, { description: 'Nieuwe regel', quantity: 1, price: 0, vat: 21 }])
@@ -1458,7 +1631,7 @@ function QuoteCreate({
     }
 
     onSave({
-      id: `quo_${Date.now()}`,
+      id: quote?.id ?? `quo_${Date.now()}`,
       companyId: activeCompanyId,
       customerId,
       number,
@@ -1474,7 +1647,7 @@ function QuoteCreate({
     <div className="invoice-builder">
       <section className="panel">
         <button className="table-link" onClick={onBack}>Terug naar offertes</button>
-        <PanelHeader title="Nieuwe offerte" />
+        <PanelHeader title={quote ? 'Offerte bewerken' : 'Nieuwe offerte'} />
         {error && <p className="form-error">{error}</p>}
         <div className="form-grid">
           <label>Klant<select value={customerId} onChange={(event) => setCustomerId(event.target.value)}>{customers.map((customer) => <option key={customer.id} value={customer.id}>{customer.name}</option>)}</select></label>
@@ -1530,6 +1703,9 @@ function QuoteDetail({
   customers,
   company,
   onBack,
+  onEdit,
+  onDuplicate,
+  onDelete,
   onConvert,
   onStatusChange,
 }: {
@@ -1537,6 +1713,9 @@ function QuoteDetail({
   customers: Customer[]
   company: Company
   onBack: () => void
+  onEdit: () => void
+  onDuplicate: () => void
+  onDelete: () => void
   onConvert: (quote: Quote) => void
   onStatusChange: (quoteId: string, status: QuoteStatus) => void
 }) {
@@ -1577,6 +1756,8 @@ function QuoteDetail({
           rows={quote.items.map((item) => [item.description, String(item.quantity), eur.format(item.price), `${item.vat}%`, eur.format(item.quantity * item.price * (1 + item.vat / 100))])}
         />
         <div className="invoice-actions">
+          <button className="primary" onClick={onEdit}>Bewerken</button>
+          <button className="ghost" onClick={onDuplicate}><Copy size={17} /> Dupliceren</button>
           {(['Concept', 'Verzonden', 'Geaccepteerd', 'Afgewezen'] as QuoteStatus[]).map((status) => (
             <button key={status} className={quote.status === status ? 'primary' : 'ghost'} onClick={() => onStatusChange(quote.id, status)}>
               {status}
@@ -1585,6 +1766,7 @@ function QuoteDetail({
           <button className="primary" onClick={() => onConvert(quote)}>Omzetten naar factuur</button>
           <button className="ghost" onClick={() => window.print()}>Printen</button>
           <button className="ghost" onClick={download}><Download size={17} /> Download HTML</button>
+          <button className="ghost danger" onClick={onDelete}><Trash2 size={17} /> Verwijderen</button>
         </div>
       </section>
       <aside className="panel preview">
@@ -1692,12 +1874,65 @@ function CompanyForm({
   )
 }
 
-function Roles() {
+function Roles({
+  members,
+  onInvite,
+  onRoleChange,
+}: {
+  members: TeamMember[]
+  onInvite: (member: Pick<TeamMember, 'name' | 'email' | 'role'>) => void
+  onRoleChange: (memberId: string, role: CompanyRole) => void
+}) {
+  const [name, setName] = useState('')
+  const [email, setEmail] = useState('')
+  const [role, setRole] = useState<CompanyRole>('Financieel medewerker')
+  const [error, setError] = useState('')
+
+  const invite = () => {
+    if (!name.trim() || !email.includes('@')) {
+      setError('Vul een naam en geldig e-mailadres in.')
+      return
+    }
+
+    onInvite({ name, email, role })
+    setName('')
+    setEmail('')
+    setRole('Financieel medewerker')
+    setError('')
+  }
+
   return (
     <div className="content-grid">
       <section className="panel wide">
         <PanelHeader title="Rollen en rechten" />
         <DataTable columns={['Rol', 'Toegang']} rows={roles.map((role) => [role.name, role.access])} />
+      </section>
+      <section className="panel wide">
+        <PanelHeader title="Teamleden" />
+        <DataTable
+          columns={['Naam', 'E-mail', 'Rol', 'Status']}
+          rows={members.map((member) => [
+            member.name,
+            member.email,
+            <select key={member.id} value={member.role} onChange={(event) => onRoleChange(member.id, event.target.value as CompanyRole)}>
+              <option>Eigenaar</option>
+              <option>Beheerder</option>
+              <option>Financieel medewerker</option>
+              <option>Lezer</option>
+            </select>,
+            <Status key={`${member.id}-status`} label={member.status} />,
+          ])}
+        />
+      </section>
+      <section className="panel wide">
+        <PanelHeader title="Teamlid uitnodigen" />
+        {error && <p className="form-error">{error}</p>}
+        <div className="form-grid">
+          <label>Naam<input value={name} onChange={(event) => setName(event.target.value)} /></label>
+          <label>E-mailadres<input value={email} onChange={(event) => setEmail(event.target.value)} /></label>
+          <label>Rol<select value={role} onChange={(event) => setRole(event.target.value as CompanyRole)}><option>Beheerder</option><option>Financieel medewerker</option><option>Lezer</option></select></label>
+        </div>
+        <button className="primary" onClick={invite}>Uitnodiging klaarzetten</button>
       </section>
       <SettingsBlock icon={<ShieldCheck />} title="RBAC-principe" text="Elke actie wordt straks gecontroleerd op user_id, company_id en rol." />
       <SettingsBlock icon={<Users />} title="Teamstructuur" text="Een gebruiker kan meerdere bedrijven beheren met per bedrijf een andere rol." />
@@ -1768,21 +2003,38 @@ function DesignSystem() {
 
 function SettingsPage({
   activeCompany,
+  settings,
   auditEvents,
   onExport,
   onReset,
+  onSaveSettings,
 }: {
-  activeCompany: { id: string; name: string; role: string; plan: string }
+  activeCompany: Company
+  settings: CompanySettings
   auditEvents: AuditEvent[]
   onExport: () => void
   onReset: () => void
+  onSaveSettings: (settings: CompanySettings) => void
 }) {
+  const [form, setForm] = useState(settings)
+  const update = (field: keyof CompanySettings, value: string | number) => setForm((current) => ({ ...current, [field]: value }))
+
   return (
     <div className="content-grid">
-      <SettingsBlock icon={<Building2 />} title="Bedrijfsgegevens" text={`${activeCompany.name}, pakket ${activeCompany.plan}, tenant ${activeCompany.id}`} />
+      <SettingsBlock icon={<Building2 />} title="Bedrijfsgegevens" text={`${activeCompany.name}, ${activeCompany.city}, pakket ${activeCompany.plan}`} />
       <SettingsBlock icon={<ShieldCheck />} title="Gebruikers en rechten" text="Voorbereid op meerdere gebruikers, rollen en audit logs." />
-      <SettingsBlock icon={<WalletCards />} title="Factuurinstellingen" text="Automatische nummers, betalingstermijnen en BTW-standaarden." />
+      <SettingsBlock icon={<WalletCards />} title="Factuurinstellingen" text={`${settings.invoicePrefix}, ${settings.paymentTermDays} dagen, standaard ${settings.defaultVat}% BTW.`} />
       <SettingsBlock icon={<BriefcaseBusiness />} title="Administraties" text="Data blijft gekoppeld aan company_id en wordt lokaal persistent opgeslagen." />
+      <section className="panel wide">
+        <PanelHeader title="Bedrijfsinstellingen" />
+        <div className="form-grid">
+          <label>Standaard BTW<select value={form.defaultVat} onChange={(event) => update('defaultVat', Number(event.target.value))}><option value={21}>21%</option><option value={9}>9%</option><option value={0}>0%</option></select></label>
+          <label>Betalingstermijn<input type="number" value={form.paymentTermDays} onChange={(event) => update('paymentTermDays', Number(event.target.value))} /></label>
+          <label>Factuurprefix<input value={form.invoicePrefix} onChange={(event) => update('invoicePrefix', event.target.value)} /></label>
+          <label>Offerteprefix<input value={form.quotePrefix} onChange={(event) => update('quotePrefix', event.target.value)} /></label>
+        </div>
+        <button className="primary" onClick={() => onSaveSettings(form)}>Instellingen opslaan</button>
+      </section>
       <section className="panel wide">
         <PanelHeader title="Werkruimtebeheer" />
         <div className="workspace-tools">
@@ -1869,6 +2121,10 @@ function addDaysIso(days: number) {
   return date.toISOString().slice(0, 10)
 }
 
+function defaultSettingsFor(companyId: string): CompanySettings {
+  return { companyId, defaultVat: 21, paymentTermDays: 14, invoicePrefix: '2026', quotePrefix: 'OFF-2026' }
+}
+
 function downloadHtml(filename: string, html: string) {
   const blob = new Blob([html], { type: 'text/html;charset=utf-8' })
   const url = window.URL.createObjectURL(blob)
@@ -1935,9 +2191,11 @@ function titleFor(screen: Screen) {
     'customer-detail': 'Klant detail',
     invoices: 'Facturen',
     'invoice-create': 'Factuur aanmaken',
+    'invoice-edit': 'Factuur bewerken',
     'invoice-detail': 'Factuur detail',
     quotes: 'Offertes',
     'quote-create': 'Offerte aanmaken',
+    'quote-edit': 'Offerte bewerken',
     'quote-detail': 'Offerte detail',
     companies: 'Bedrijven',
     'company-form': 'Bedrijf beheren',

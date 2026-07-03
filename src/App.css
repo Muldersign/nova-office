@@ -218,6 +218,12 @@ select {
   font-weight: 700;
 }
 
+.ghost.danger {
+  color: var(--red);
+  background: var(--red-soft);
+  border-color: var(--red-soft);
+}
+
 .full {
   width: 100%;
 }

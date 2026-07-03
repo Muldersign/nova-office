@@ -24,6 +24,15 @@ CREATE TABLE company_memberships (
   UNIQUE(user_id, company_id)
 );
 
+CREATE TABLE company_settings (
+  company_id TEXT PRIMARY KEY REFERENCES companies(id),
+  default_vat_rate REAL NOT NULL,
+  payment_term_days INTEGER NOT NULL,
+  invoice_prefix TEXT NOT NULL,
+  quote_prefix TEXT NOT NULL,
+  updated_at TEXT NOT NULL
+);
+
 CREATE TABLE customers (
   id TEXT PRIMARY KEY,
   company_id TEXT NOT NULL REFERENCES companies(id),
@@ -102,6 +111,7 @@ CREATE TABLE audit_events (
 );
 
 CREATE INDEX idx_customers_company_id ON customers(company_id);
+CREATE INDEX idx_company_settings_company_id ON company_settings(company_id);
 CREATE INDEX idx_invoices_company_id ON invoices(company_id);
 CREATE INDEX idx_invoice_items_company_id ON invoice_items(company_id);
 CREATE INDEX idx_quotes_company_id ON quotes(company_id);

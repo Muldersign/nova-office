@@ -2,12 +2,18 @@ import {
   createCustomer,
   createInvoice,
   createQuote,
+  deleteInvoice,
+  deleteQuote,
   listCustomers,
   listInvoices,
   listQuotes,
+  updateCustomer,
+  updateInvoice,
   updateInvoiceStatus,
+  updateQuote,
 } from './repository.ts'
 import type { CustomerRecord, DocumentLineRecord, InvoiceRecord, NovaDatabase, QuoteRecord } from './schema.ts'
+import { createPasswordResetToken, loginUser, registerUser } from './session.ts'
 
 type ApiContext = {
   userId: string
@@ -35,6 +41,29 @@ function failure(error: unknown): ApiResult<never> {
 }
 
 export const api = {
+  auth: {
+    register(database: NovaDatabase, input: Parameters<typeof registerUser>[1]) {
+      try {
+        return success(201, registerUser(database, input))
+      } catch (error) {
+        return failure(error)
+      }
+    },
+    login(database: NovaDatabase, email: string, password: string) {
+      try {
+        return success(200, loginUser(database, email, password))
+      } catch (error) {
+        return failure(error)
+      }
+    },
+    forgotPassword(database: NovaDatabase, email: string) {
+      try {
+        return success(202, createPasswordResetToken(database, email))
+      } catch (error) {
+        return failure(error)
+      }
+    },
+  },
   customers: {
     list(database: NovaDatabase, context: ApiContext) {
       try {
@@ -50,6 +79,18 @@ export const api = {
     ) {
       try {
         return success(201, createCustomer(database, context, input))
+      } catch (error) {
+        return failure(error)
+      }
+    },
+    update(
+      database: NovaDatabase,
+      context: ApiContext,
+      customerId: string,
+      input: Omit<CustomerRecord, 'id' | 'companyId' | 'createdAt' | 'updatedAt'>,
+    ) {
+      try {
+        return success(200, updateCustomer(database, context, customerId, input))
       } catch (error) {
         return failure(error)
       }
@@ -82,6 +123,26 @@ export const api = {
         return failure(error)
       }
     },
+    update(
+      database: NovaDatabase,
+      context: ApiContext,
+      invoiceId: string,
+      input: Omit<InvoiceRecord, 'id' | 'companyId' | 'createdAt' | 'updatedAt'>,
+      items: Array<Omit<DocumentLineRecord, 'id' | 'companyId' | 'parentId'>>,
+    ) {
+      try {
+        return success(200, updateInvoice(database, context, invoiceId, input, items))
+      } catch (error) {
+        return failure(error)
+      }
+    },
+    delete(database: NovaDatabase, context: ApiContext, invoiceId: string) {
+      try {
+        return success(200, deleteInvoice(database, context, invoiceId))
+      } catch (error) {
+        return failure(error)
+      }
+    },
   },
   quotes: {
     list(database: NovaDatabase, context: ApiContext) {
@@ -99,6 +160,26 @@ export const api = {
     ) {
       try {
         return success(201, createQuote(database, context, input, items))
+      } catch (error) {
+        return failure(error)
+      }
+    },
+    update(
+      database: NovaDatabase,
+      context: ApiContext,
+      quoteId: string,
+      input: Omit<QuoteRecord, 'id' | 'companyId' | 'createdAt' | 'updatedAt'>,
+      items: Array<Omit<DocumentLineRecord, 'id' | 'companyId' | 'parentId'>>,
+    ) {
+      try {
+        return success(200, updateQuote(database, context, quoteId, input, items))
+      } catch (error) {
+        return failure(error)
+      }
+    },
+    delete(database: NovaDatabase, context: ApiContext, quoteId: string) {
+      try {
+        return success(200, deleteQuote(database, context, quoteId))
       } catch (error) {
         return failure(error)
       }

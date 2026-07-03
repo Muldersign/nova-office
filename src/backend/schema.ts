@@ -29,6 +29,15 @@ export type MembershipRecord = {
   status: 'active' | 'invited' | 'disabled'
 }
 
+export type CompanySettingsRecord = {
+  companyId: string
+  defaultVatRate: number
+  paymentTermDays: number
+  invoicePrefix: string
+  quotePrefix: string
+  updatedAt: string
+}
+
 export type CustomerRecord = {
   id: string
   companyId: string
@@ -98,6 +107,7 @@ export type NovaDatabase = {
   users: UserRecord[]
   companies: CompanyRecord[]
   memberships: MembershipRecord[]
+  companySettings: CompanySettingsRecord[]
   customers: CustomerRecord[]
   invoices: InvoiceRecord[]
   invoiceItems: DocumentLineRecord[]
@@ -110,6 +120,7 @@ export const emptyDatabase = (): NovaDatabase => ({
   users: [],
   companies: [],
   memberships: [],
+  companySettings: [],
   customers: [],
   invoices: [],
   invoiceItems: [],
@@ -120,6 +131,7 @@ export const emptyDatabase = (): NovaDatabase => ({
 
 export const tenantTables = [
   'memberships',
+  'companySettings',
   'customers',
   'invoices',
   'invoiceItems',
