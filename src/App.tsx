@@ -52,6 +52,7 @@ import {
 } from './services/remoteWorkspace'
 import { getSupabaseClient } from './services/supabaseClient'
 import { downloadServerPdf } from './services/pdfService'
+import { sendDocumentEmail } from './services/documentSendService'
 import { createWorkspaceStore } from './services/workspaceStore'
 import './App.css'
 
@@ -2318,6 +2319,8 @@ function InvoiceDetail({
 }) {
   const totals = calculateTotals(invoice.items)
   const customer = customers.find((record) => record.id === invoice.customerId)
+  const [sendBusy, setSendBusy] = useState(false)
+  const [sendMessage, setSendMessage] = useState('')
   const documentEmail = createDocumentEmail({
     type: 'invoice',
     number: invoice.number,
@@ -2359,6 +2362,38 @@ function InvoiceDetail({
       total: eur.format(invoice.amount),
     })
   }
+  const sendInvoice = async () => {
+    if (!customer?.email) {
+      setSendMessage('Deze klant heeft nog geen e-mailadres.')
+      return
+    }
+
+    setSendBusy(true)
+    setSendMessage('')
+    try {
+      const message = await sendDocumentEmail({
+        to: customer.email,
+        from: company.email || 'send@brenqo.nl',
+        replyTo: company.email || 'send@brenqo.nl',
+        subject: documentEmail.subject,
+        body: documentEmail.body,
+        filename: safeDocumentFilename('factuur', invoice.number, 'pdf'),
+        document: {
+          ...printableDocument,
+          title: `Factuur ${invoice.number}`,
+          total: eur.format(invoice.amount),
+        },
+      })
+      setSendMessage(`${message} Naar ${customer.email}.`)
+      if (invoice.status === 'Concept') {
+        onStatusChange(invoice.id, 'Verzonden')
+      }
+    } catch (error) {
+      setSendMessage(error instanceof Error ? error.message : 'Factuur kon niet worden verstuurd.')
+    } finally {
+      setSendBusy(false)
+    }
+  }
 
   return (
     <div className="invoice-builder">
@@ -2398,6 +2433,10 @@ function InvoiceDetail({
           <span className="summary-total">Totaal<strong>{eur.format(totals.total)}</strong></span>
         </div>
         <button className="primary full" onClick={() => { void downloadPdf().catch(() => download()) }}>Download PDF</button>
+        <button className="dark-button full" disabled={sendBusy || !customer?.email} onClick={() => { void sendInvoice() }}>
+          {sendBusy ? 'Versturen...' : 'Verstuur factuur'}
+        </button>
+        {sendMessage && <p className={sendMessage.includes('verstuurd') ? 'success-note' : 'error'}>{sendMessage}</p>}
         <button className="ghost full" onClick={() => window.print()}>Printen</button>
         <button className="ghost full" onClick={download}><Download size={17} /> Download document</button>
         <button className="ghost full" onClick={() => void navigator.clipboard?.writeText(`${documentEmail.subject}\n\n${documentEmail.body}`)}>Kopieer verzendmail</button>
