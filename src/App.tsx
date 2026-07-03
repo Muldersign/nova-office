@@ -36,6 +36,7 @@ import {
 import { calculateTotals, nextDocumentNumber, validateRequiredCustomer } from './foundation/business'
 import { foundationRules, foundationSchema, tenantScopedTables } from './foundation/database'
 import { createPrintableDocumentHtml } from './foundation/documents'
+import { isUsageWithinPlan, planByName, planCatalog, usagePercentage, type PlanLimitKey, type PlanName, type PlanUsage } from './foundation/subscription'
 import { createInviteEmail, createInviteToken, safeDocumentFilename } from './foundation/workflows'
 import { submitAuth, type AuthMode } from './services/authService'
 import {
@@ -86,7 +87,7 @@ type Screen =
 type InvoiceStatus = 'Concept' | 'Verzonden' | 'Betaald' | 'Verlopen'
 type QuoteStatus = 'Concept' | 'Verzonden' | 'Geaccepteerd' | 'Afgewezen'
 type CompanyRole = 'Eigenaar' | 'Beheerder' | 'Financieel medewerker' | 'Lezer'
-type CompanyPlan = 'Brenqo Start' | 'Brenqo ZZP' | 'Brenqo MKB' | 'Brenqo Enterprise'
+type CompanyPlan = PlanName
 type TeamStatus = 'Actief' | 'Uitgenodigd'
 
 type Company = {
@@ -485,6 +486,7 @@ const navItems = [
   ['database', BookOpen, 'Database'],
   ['design-system', Package, 'Design system'],
   ['settings', Settings, 'Instellingen'],
+  ['subscription', WalletCards, 'Abonnement'],
 ] as const
 
 const eur = new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR' })
@@ -645,6 +647,15 @@ function App() {
       vatDue,
     }
   }, [companyInvoices])
+  const planUsage: PlanUsage = {
+    companies: companyRecords.length,
+    customers: companyCustomers.length,
+    invoices: companyInvoices.length,
+    quotes: companyQuotes.length,
+    teamMembers: companyTeamMembers.length,
+  }
+  const activePlan = planByName(activeCompany.plan)
+  const planHealthy = isUsageWithinPlan(planUsage, activePlan)
 
   const applyRemoteWorkspace = (remote: Awaited<ReturnType<typeof loadRemoteWorkspace>>, options: { openDashboard?: boolean } = {}) => {
     if (!remote || remote.companies.length === 0) {
@@ -870,6 +881,13 @@ function App() {
     navigate('companies')
   }
 
+  const updateCompanyPlan = async (plan: CompanyPlan) => {
+    const nextCompany = { ...activeCompany, plan }
+    setCompanyRecords((records) => records.map((record) => (record.id === activeCompany.id ? nextCompany : record)))
+    await syncRemote((async () => upsertRemoteCompany(getSupabaseClient()!, nextCompany)), 'Abonnement bijgewerkt.')
+    appendAudit(activeCompany.id, `Abonnement gewijzigd naar ${plan}`, 'company', activeCompany.id)
+  }
+
   const saveInvoice = async (invoice: Invoice) => {
     const exists = invoiceRecords.some((record) => record.id === invoice.id)
     setInvoiceRecords((records) => (exists ? records.map((record) => (record.id === invoice.id ? invoice : record)) : [invoice, ...records]))
@@ -1066,8 +1084,9 @@ function App() {
         </nav>
         <div className="plan-card">
           <Sparkles size={18} />
-          <strong>MVP-fundering actief</strong>
-          <span>Authenticatie, tenants, rollen, klanten, facturen en offertes.</span>
+          <strong>{activeCompany.plan}</strong>
+          <span>{planHealthy ? 'Gebruik binnen pakket.' : 'Pakketlimiet bereikt.'}</span>
+          <button onClick={() => navigate('subscription')}>Pakket bekijken</button>
         </div>
       </aside>
 
@@ -1096,7 +1115,7 @@ function App() {
         )}
 
         <div className="module-tabs" aria-label="MVP modules">
-          {(['dashboard', 'customers', 'invoices', 'quotes', 'products', 'companies', 'settings'] as Screen[]).map((module) => (
+          {(['dashboard', 'customers', 'invoices', 'quotes', 'products', 'companies', 'settings', 'subscription'] as Screen[]).map((module) => (
             <button key={module} className={screen === module ? 'active' : ''} onClick={() => navigate(module)}>
               {titleFor(module)}
             </button>
@@ -1291,6 +1310,14 @@ function App() {
             onExport={exportWorkspace}
             onReset={() => requirePermission(canManageCompany, resetWorkspace)}
             onSaveSettings={(settings) => requirePermission(canManageCompany, () => { void saveSettings(settings) })}
+          />
+        )}
+        {screen === 'subscription' && (
+          <SubscriptionPage
+            activeCompany={activeCompany}
+            usage={planUsage}
+            canManage={canManageCompany}
+            onSelectPlan={(plan) => requirePermission(canManageCompany, () => { void updateCompanyPlan(plan) })}
           />
         )}
       </main>
@@ -2802,6 +2829,87 @@ function SettingsPage({
           ])}
         />
       </section>
+    </div>
+  )
+}
+
+function SubscriptionPage({
+  activeCompany,
+  usage,
+  canManage,
+  onSelectPlan,
+}: {
+  activeCompany: Company
+  usage: PlanUsage
+  canManage: boolean
+  onSelectPlan: (plan: CompanyPlan) => void
+}) {
+  const currentPlan = planByName(activeCompany.plan)
+  const usageLabels: Record<PlanLimitKey, string> = {
+    companies: 'Administraties',
+    customers: 'Klanten',
+    invoices: 'Facturen',
+    quotes: 'Offertes',
+    teamMembers: 'Teamleden',
+  }
+
+  return (
+    <div className="content-grid">
+      <section className="panel wide subscription-hero">
+        <div>
+          <p className="eyebrow">Account en abonnement</p>
+          <h2>{activeCompany.name}</h2>
+          <p>{currentPlan.audience}</p>
+        </div>
+        <div className="subscription-summary">
+          <span>Huidig pakket</span>
+          <strong>{currentPlan.name}</strong>
+          <em>{currentPlan.price}</em>
+        </div>
+      </section>
+
+      <section className="panel wide">
+        <PanelHeader title="Gebruik deze maand" />
+        <div className="usage-grid">
+          {(Object.keys(usage) as PlanLimitKey[]).map((key) => {
+            const limit = currentPlan.limits[key]
+            const percentage = usagePercentage(usage[key], limit)
+            return (
+              <div className="usage-card" key={key}>
+                <div>
+                  <span>{usageLabels[key]}</span>
+                  <strong>{usage[key]}{limit === null ? '' : ` / ${limit}`}</strong>
+                </div>
+                <div className="usage-bar"><span style={{ width: `${limit === null ? 100 : percentage}%` }} /></div>
+                <small>{limit === null ? 'Onbeperkt binnen Enterprise' : `${percentage}% gebruikt`}</small>
+              </div>
+            )
+          })}
+        </div>
+      </section>
+
+      <section className="panel wide">
+        <PanelHeader title="Pakketten" />
+        <div className="plan-grid">
+          {planCatalog.map((plan) => (
+            <article className={`plan-option ${plan.name === activeCompany.plan ? 'active' : ''}`} key={plan.name}>
+              <span>{plan.name}</span>
+              <strong>{plan.price}</strong>
+              <p>{plan.audience}</p>
+              <div className="suggestions">
+                {plan.features.map((feature) => <span key={feature}><Check size={16} /> {feature}</span>)}
+              </div>
+              <button className={plan.name === activeCompany.plan ? 'ghost' : 'primary'} disabled={!canManage || plan.name === activeCompany.plan} onClick={() => onSelectPlan(plan.name)}>
+                {plan.name === activeCompany.plan ? 'Actief pakket' : 'Pakket kiezen'}
+              </button>
+            </article>
+          ))}
+        </div>
+        {!canManage && <p className="form-error">Alleen eigenaar en beheerder kunnen het pakket wijzigen.</p>}
+      </section>
+
+      <SettingsBlock icon={<WalletCards />} title="Facturatie" text={`${activeCompany.email || 'Geen facturatie-e-mail ingesteld'} - ${activeCompany.iban || 'Geen IBAN ingesteld'}`} />
+      <SettingsBlock icon={<ShieldCheck />} title="Toegang" text={`Je rol binnen dit bedrijf is ${activeCompany.role}. Pakketwijzigingen worden gelogd in de auditlog.`} />
     </div>
   )
 }

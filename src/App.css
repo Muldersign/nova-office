@@ -1068,6 +1068,17 @@ nav button:hover {
   font-size: 13px;
 }
 
+.plan-card button {
+  justify-self: start;
+  min-height: 34px;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  border-radius: 7px;
+  padding: 0 10px;
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+  font-weight: 800;
+}
+
 .workspace {
   min-width: 0;
   padding: 24px;
@@ -1744,6 +1755,111 @@ th {
   background: var(--blue-soft);
 }
 
+.subscription-hero {
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  align-items: center;
+  background:
+    linear-gradient(135deg, rgba(24, 119, 242, 0.1), rgba(19, 163, 111, 0.08)),
+    #fff;
+}
+
+.subscription-hero h2 {
+  margin: 0 0 8px;
+  font-size: 34px;
+}
+
+.subscription-hero p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.subscription-summary {
+  min-width: 240px;
+  display: grid;
+  gap: 6px;
+  padding: 18px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.subscription-summary span,
+.usage-card span,
+.plan-option span {
+  color: var(--muted);
+  font-size: 12px;
+  font-weight: 900;
+  text-transform: uppercase;
+}
+
+.subscription-summary strong {
+  font-size: 24px;
+}
+
+.subscription-summary em {
+  color: var(--green);
+  font-style: normal;
+  font-weight: 900;
+}
+
+.usage-grid,
+.plan-grid {
+  display: grid;
+  gap: 14px;
+}
+
+.usage-grid {
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+}
+
+.plan-grid {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.usage-card,
+.plan-option {
+  display: grid;
+  gap: 12px;
+  align-content: start;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.usage-card strong,
+.plan-option strong {
+  display: block;
+  margin-top: 4px;
+  font-size: 22px;
+}
+
+.usage-card small,
+.plan-option p {
+  color: var(--muted);
+}
+
+.usage-bar {
+  height: 9px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: #e9eef7;
+}
+
+.usage-bar span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, var(--blue), var(--green));
+}
+
+.plan-option.active {
+  border-color: rgba(24, 119, 242, 0.44);
+  box-shadow: 0 16px 44px rgba(24, 119, 242, 0.12);
+}
+
 @media (max-width: 1100px) {
   .onboarding-grid,
   .app-shell,
@@ -1821,8 +1937,15 @@ th {
   }
 
   .kpi-grid,
-  .plans {
+  .plans,
+  .usage-grid,
+  .plan-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .subscription-hero {
+    align-items: stretch;
+    flex-direction: column;
   }
 
   .content-grid {
@@ -1970,7 +2093,9 @@ th {
   .kpi-grid,
   .quick-actions,
   .form-grid,
-  .plans {
+  .plans,
+  .usage-grid,
+  .plan-grid {
     grid-template-columns: 1fr;
   }
 
