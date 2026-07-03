@@ -1,4 +1,4 @@
-import { type ReactNode, useEffect, useMemo, useState } from 'react'
+import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from 'react'
 import {
   Area,
   AreaChart,
@@ -1093,16 +1093,57 @@ function App() {
 }
 
 function AuthScreen({ onLogin }: { onLogin: () => void }) {
+  const [activeProduct, setActiveProduct] = useState('Facturen')
+  const [demoName, setDemoName] = useState('')
+  const [demoEmail, setDemoEmail] = useState('')
+  const [demoSubmitted, setDemoSubmitted] = useState(false)
+  const productViews = [
+    {
+      name: 'Facturen',
+      title: 'Facturen maken zonder zoeken',
+      metric: '€ 18.640',
+      status: '12 openstaand',
+      rows: ['Studio Veldkamp klaar voor verzending', 'Rijnhaven Logistics betaald', 'Nordbyte Systems herinnering nodig'],
+    },
+    {
+      name: 'Offertes',
+      title: 'Van offerte naar opdracht in één lijn',
+      metric: '74%',
+      status: 'acceptatie deze maand',
+      rows: ['OFF-2026-055 wacht op akkoord', 'OFF-2026-054 geaccepteerd', 'Nieuwe offerte vanuit klantkaart'],
+    },
+    {
+      name: 'CRM',
+      title: 'Relaties, taken en omzet bij elkaar',
+      metric: '42',
+      status: 'actieve relaties',
+      rows: ['Vervolgactie bij Studio Veldkamp', 'Nieuwe lead toegevoegd', 'Klantwaarde automatisch bijgewerkt'],
+    },
+    {
+      name: 'Rapportages',
+      title: 'Rustig overzicht voor betere keuzes',
+      metric: '€ 32.540',
+      status: 'resultaat dit kwartaal',
+      rows: ['Omzet groeit 12,5%', 'BTW-reservering voorbereid', 'Cashflow blijft positief'],
+    },
+  ]
+  const currentProduct = productViews.find((product) => product.name === activeProduct) ?? productViews[0]
+  const scrollTo = (sectionId: string) => document.getElementById(sectionId)?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  const submitDemo = (event: FormEvent<HTMLFormElement>) => {
+    event.preventDefault()
+    setDemoSubmitted(true)
+  }
+
   return (
     <div className="auth-page">
       <section className="landing-shell">
         <header className="landing-nav">
           <Brand />
           <nav className="landing-links" aria-label="Hoofdnavigatie">
-            <button>Producten</button>
-            <button>Prijzen</button>
-            <button>Over ons</button>
-            <button>Resources</button>
+            <button onClick={() => scrollTo('producten')}>Producten</button>
+            <button onClick={() => scrollTo('prijzen')}>Prijzen</button>
+            <button onClick={() => scrollTo('workflow')}>Workflow</button>
+            <button onClick={() => scrollTo('demo')}>Demo</button>
           </nav>
           <div className="landing-actions">
             <button className="text-button" onClick={onLogin}>Inloggen</button>
@@ -1114,10 +1155,10 @@ function AuthScreen({ onLogin }: { onLogin: () => void }) {
           <div className="hero-copy">
             <span className="pill">Een platform. Alles onder controle.</span>
             <h1>Jouw administratie, maar dan <span>makkelijk</span></h1>
-            <p>Brenqo brengt facturen, offertes, klanten, producten en rapportages samen in een rustige werkruimte voor ondernemers.</p>
+            <p>Brenqo brengt facturen, offertes, klanten, producten en rapportages samen in een snelle werkruimte voor ondernemers.</p>
             <div className="hero-actions">
               <button className="dark-button large" onClick={onLogin}>Gratis proberen <ArrowRight size={17} /></button>
-              <button className="light-button large" onClick={onLogin}>Plan een demo</button>
+              <button className="light-button large" onClick={() => scrollTo('demo')}>Plan een demo</button>
             </div>
             <div className="trust-row">
               <span><Check size={16} /> 14 dagen gratis</span>
@@ -1127,17 +1168,44 @@ function AuthScreen({ onLogin }: { onLogin: () => void }) {
           </div>
 
           <div className="hero-product">
-            <div className="desktop-preview">
-              <aside>
+            <div className="product-demo" aria-label="Interactieve Brenqo productdemo">
+              <aside className="demo-sidebar">
                 <Brand />
-                {['Dashboard', 'Facturen', 'Offertes', 'Relaties', 'Producten', 'Rapportages'].map((item) => <span key={item}>{item}</span>)}
+                {productViews.map((product) => (
+                  <button
+                    key={product.name}
+                    className={product.name === activeProduct ? 'active' : ''}
+                    onClick={() => setActiveProduct(product.name)}
+                  >
+                    {product.name}
+                  </button>
+                ))}
               </aside>
-              <main>
-                <div className="preview-top">
-                  <strong>Dashboard</strong>
-                  <input placeholder="Zoek..." readOnly />
+              <main className="demo-main">
+                <div className="demo-topbar">
+                  <div>
+                    <span>Live werkruimte</span>
+                    <strong>{currentProduct.title}</strong>
+                  </div>
+                  <label className="demo-search">
+                    <Search size={16} />
+                    <input placeholder="Zoek klant, factuur of offerte" readOnly />
+                  </label>
                 </div>
-                <div className="preview-grid">
+                <div className="demo-content">
+                  <div className="demo-kpi">
+                    <span>{activeProduct}</span>
+                    <strong>{currentProduct.metric}</strong>
+                    <small>{currentProduct.status}</small>
+                  </div>
+                  <div className="demo-chart">
+                    {Array.from({ length: 14 }, (_, index) => <i key={index} style={{ height: `${34 + (index % 5) * 13}px` }} />)}
+                  </div>
+                  <div className="demo-list">
+                    {currentProduct.rows.map((row) => <span key={row}><Check size={16} /> {row}</span>)}
+                  </div>
+                </div>
+                <div className="preview-grid legacy-preview-grid">
                   <PreviewMetric title="Omzet" value="€ 125.430" tone="blue" />
                   <PreviewMetric title="Resultaat" value="€ 32.540" tone="green" />
                   <PreviewMetric title="Openstaand" value="€ 18.640" />
@@ -1160,27 +1228,94 @@ function AuthScreen({ onLogin }: { onLogin: () => void }) {
           </div>
         </div>
 
-        <section className="landing-products">
+        <section className="landing-products" id="producten">
           <h2>Alles wat je bedrijf nodig heeft</h2>
           <p>Van administratie tot CRM. Brenqo groeit met je mee.</p>
           <div className="product-strip">
             {[
-              ['Finance', 'Facturen, offertes en btw.'],
-              ['CRM', 'Beheer relaties en kansen.'],
-              ['Projecten', 'Plan en factureer werk.'],
-              ['Uren', 'Hou uren eenvoudig bij.'],
-              ['Rapportages', 'Realtime inzicht.'],
-              ['Integraties', 'Koppel je tools.'],
+              ['Facturen', 'Maak, verstuur en volg facturen.'],
+              ['Offertes', 'Van voorstel naar opdracht.'],
+              ['CRM', 'Beheer relaties en klantwaarde.'],
+              ['Producten', 'Sla diensten en prijzen op.'],
+              ['Rapportages', 'Realtime inzicht in je cijfers.'],
+              ['Rechten', 'Werk veilig met meerdere rollen.'],
             ].map(([title, text]) => (
-              <article key={title}>
+              <button key={title} onClick={() => ['Facturen', 'Offertes', 'CRM', 'Rapportages'].includes(title) ? setActiveProduct(title) : scrollTo('workflow')}>
                 <span><Sparkles size={22} /></span>
                 <strong>{title}</strong>
                 <p>{text}</p>
+              </button>
+            ))}
+          </div>
+          <button className="dark-button large" onClick={onLogin}>Start met je werkruimte</button>
+        </section>
+
+        <section className="workflow-section" id="workflow">
+          <div>
+            <span className="pill">Minder klikken, meer gedaan</span>
+            <h2>Een workflow die voelt alsof hij meedenkt</h2>
+            <p>De MVP is gebouwd rondom een schaalbare basis: multi-tenant bedrijven, rollen, klanten, facturen, offertes en een design-systeem dat later AI en boekhouding kan dragen.</p>
+          </div>
+          <div className="workflow-grid">
+            <article>
+              <FilePlus2 size={24} />
+              <strong>Maak sneller</strong>
+              <p>Klantgegevens, productregels en documentnummers worden slim hergebruikt.</p>
+            </article>
+            <article>
+              <ShieldCheck size={24} />
+              <strong>Werk veiliger</strong>
+              <p>Iedere administratie is gescheiden en rollen bepalen wie wat mag doen.</p>
+            </article>
+            <article>
+              <BookOpen size={24} />
+              <strong>Stuur beter</strong>
+              <p>Dashboard, rapportages en auditlog geven direct grip op je bedrijf.</p>
+            </article>
+          </div>
+        </section>
+
+        <section className="pricing-section" id="prijzen">
+          <div className="section-heading">
+            <h2>Kies klein, groei later door</h2>
+            <p>Voor de MVP staat de basis klaar. Pakketten zijn voorbereid zodat abonnementen later direct kunnen landen.</p>
+          </div>
+          <div className="price-grid">
+            {[
+              ['Start', '€ 0', 'Test de MVP met klanten, facturen en offertes.'],
+              ['ZZP', '€ 19', 'Voor ondernemers die administratie sneller willen doen.'],
+              ['MKB', '€ 49', 'Voor teams met meerdere bedrijven en rollen.'],
+            ].map(([name, price, text]) => (
+              <article key={name}>
+                <span>Brenqo {name}</span>
+                <strong>{price}<small>/ maand</small></strong>
+                <p>{text}</p>
+                <button className={name === 'ZZP' ? 'dark-button' : 'light-button'} onClick={onLogin}>Probeer {name}</button>
               </article>
             ))}
           </div>
-          <button className="dark-button large" onClick={onLogin}>Bekijk alle producten</button>
         </section>
+
+        <section className="demo-section" id="demo">
+          <div>
+            <span className="pill">Even meekijken</span>
+            <h2>Plan een demo of open direct de app</h2>
+            <p>Laat je gegevens achter voor een demo-aanvraag, of ga meteen naar de werkende Brenqo MVP.</p>
+          </div>
+          <form className="demo-form" onSubmit={submitDemo}>
+            <label>Naam<input value={demoName} onChange={(event) => setDemoName(event.target.value)} placeholder="Je naam" required /></label>
+            <label>E-mailadres<input value={demoEmail} onChange={(event) => setDemoEmail(event.target.value)} placeholder="naam@bedrijf.nl" type="email" required /></label>
+            <button className="dark-button full" type="submit">Demo aanvragen</button>
+            <button className="light-button full" type="button" onClick={onLogin}>Open de app</button>
+            {demoSubmitted && <p className="success-note">Demo-aanvraag staat klaar voor {demoName || demoEmail}. In de backendfase koppelen we dit aan mail en CRM.</p>}
+          </form>
+        </section>
+
+        <footer className="landing-footer">
+          <Brand />
+          <span>© Brenqo 2026</span>
+          <button onClick={() => scrollTo('producten')}>Terug naar boven</button>
+        </footer>
       </section>
     </div>
   )
