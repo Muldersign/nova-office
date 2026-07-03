@@ -74,7 +74,7 @@ type Screen =
 type InvoiceStatus = 'Concept' | 'Verzonden' | 'Betaald' | 'Verlopen'
 type QuoteStatus = 'Concept' | 'Verzonden' | 'Geaccepteerd' | 'Afgewezen'
 type CompanyRole = 'Eigenaar' | 'Beheerder' | 'Financieel medewerker' | 'Lezer'
-type CompanyPlan = 'NOVA Start' | 'NOVA ZZP' | 'NOVA MKB' | 'NOVA Enterprise'
+type CompanyPlan = 'Brenqo Start' | 'Brenqo ZZP' | 'Brenqo MKB' | 'Brenqo Enterprise'
 type TeamStatus = 'Actief' | 'Uitgenodigd'
 
 type Company = {
@@ -84,7 +84,14 @@ type Company = {
   plan: CompanyPlan
   chamber: string
   vat: string
+  address: string
+  postalCode: string
   city: string
+  phone: string
+  email: string
+  iban: string
+  bic: string
+  logoUrl: string
 }
 
 type CompanySettings = {
@@ -170,26 +177,40 @@ type InvoiceRow = {
   vat: number
 }
 
-const companyId = 'comp_nova_demo'
+const companyId = 'comp_muldersign'
 
 const companies: Company[] = [
   {
-    id: 'comp_nova_demo',
-    name: 'NOVA Demo BV',
+    id: 'comp_muldersign',
+    name: 'Muldersign',
     role: 'Eigenaar',
-    plan: 'NOVA Start',
-    chamber: '87124490',
-    vat: 'NL862145901B01',
-    city: 'Amsterdam',
+    plan: 'Brenqo Start',
+    chamber: '88373630',
+    vat: 'NL004592528B88',
+    address: 'De Kolk 10',
+    postalCode: '9656PJ',
+    city: 'Spijkerboor',
+    phone: '+31 (0) 639232306',
+    email: 'administratie@muldersign.nl',
+    iban: 'NL94 RABO 0338 4823 85',
+    bic: 'RABONL2U',
+    logoUrl: '/muldersign-logo.png',
   },
   {
-    id: 'comp_orbit_studio',
-    name: 'Orbit Studio VOF',
+    id: 'comp_brenqo_demo',
+    name: 'Brenqo Demo BV',
     role: 'Beheerder',
-    plan: 'NOVA Start',
+    plan: 'Brenqo Start',
     chamber: '63091244',
     vat: 'NL809912344B01',
+    address: 'Stationsplein 1',
+    postalCode: '1012 AB',
     city: 'Den Haag',
+    phone: '+31 (0) 20 000 0000',
+    email: 'info@brenqo.nl',
+    iban: 'NL00 BANK 0000 0000 00',
+    bic: 'BANKNL2A',
+    logoUrl: '',
   },
 ]
 
@@ -245,7 +266,7 @@ const customers: Customer[] = [
   },
   {
     id: 'cus_04',
-    companyId: 'comp_orbit_studio',
+    companyId: 'comp_brenqo_demo',
     name: 'Helder Merkadvies',
     contact: 'Lotte Kramer',
     email: 'lotte@heldermerk.nl',
@@ -313,7 +334,7 @@ const invoices: Invoice[] = [
   },
   {
     id: 'inv_05',
-    companyId: 'comp_orbit_studio',
+    companyId: 'comp_brenqo_demo',
     customerId: 'cus_04',
     number: '2026-0031',
     date: '2026-07-01',
@@ -326,14 +347,14 @@ const invoices: Invoice[] = [
 ]
 
 const companySettings: CompanySettings[] = [
-  { companyId: 'comp_nova_demo', defaultVat: 21, paymentTermDays: 14, invoicePrefix: '2026', quotePrefix: 'OFF-2026' },
-  { companyId: 'comp_orbit_studio', defaultVat: 21, paymentTermDays: 30, invoicePrefix: '2026', quotePrefix: 'OFF-2026' },
+  { companyId: 'comp_muldersign', defaultVat: 21, paymentTermDays: 14, invoicePrefix: '2026', quotePrefix: 'OFF-2026' },
+  { companyId: 'comp_brenqo_demo', defaultVat: 21, paymentTermDays: 30, invoicePrefix: '2026', quotePrefix: 'OFF-2026' },
 ]
 
 const teamMembers: TeamMember[] = [
   { id: 'mem_owner', companyId, name: 'Glen Mulder', email: 'glen@muldersign.nl', role: 'Eigenaar', status: 'Actief' },
-  { id: 'mem_finance', companyId, name: 'Financieel team', email: 'finance@novaoffice.nl', role: 'Financieel medewerker', status: 'Uitgenodigd' },
-  { id: 'mem_orbit', companyId: 'comp_orbit_studio', name: 'Orbit beheer', email: 'beheer@orbitstudio.nl', role: 'Beheerder', status: 'Actief' },
+  { id: 'mem_finance', companyId, name: 'Financieel team', email: 'finance@brenqo.nl', role: 'Financieel medewerker', status: 'Uitgenodigd' },
+  { id: 'mem_orbit', companyId: 'comp_brenqo_demo', name: 'Brenqo beheer', email: 'beheer@brenqo.nl', role: 'Beheerder', status: 'Actief' },
 ]
 
 const products: Product[] = [
@@ -357,8 +378,8 @@ const products: Product[] = [
   },
   {
     id: 'prd_orbit_brand',
-    companyId: 'comp_orbit_studio',
-    name: 'Merkadvies sprint',
+    companyId: 'comp_brenqo_demo',
+    name: 'Brenqo onboarding sprint',
     description: 'Compact traject voor positionering en merkfundering',
     unitPrice: 1750,
     vat: 21,
@@ -376,7 +397,7 @@ const quotes: Quote[] = [
     vat: 1111,
     status: 'Verzonden',
     validUntil: '2026-07-18',
-    items: [{ description: 'Implementatie NOVA workflow', quantity: 1, price: 5289, vat: 21 }],
+    items: [{ description: 'Implementatie Brenqo workflow', quantity: 1, price: 5289, vat: 21 }],
   },
   {
     id: 'quo_02',
@@ -402,14 +423,14 @@ const quotes: Quote[] = [
   },
   {
     id: 'quo_04',
-    companyId: 'comp_orbit_studio',
+    companyId: 'comp_brenqo_demo',
     customerId: 'cus_04',
     number: 'OFF-2026-012',
     amount: 3200,
     vat: 555,
     status: 'Concept',
     validUntil: '2026-07-28',
-    items: [{ description: 'Merkpakket start', quantity: 1, price: 2645, vat: 21 }],
+    items: [{ description: 'Brenqo startpakket', quantity: 1, price: 2645, vat: 21 }],
   },
 ]
 
@@ -432,7 +453,7 @@ const auditEvents: AuditEvent[] = [
   },
   {
     id: 'evt_03',
-    companyId: 'comp_orbit_studio',
+    companyId: 'comp_brenqo_demo',
     action: 'Factuur 2026-0031 verzonden naar Helder Merkadvies',
     entityType: 'invoice',
     entityId: 'inv_05',
@@ -464,21 +485,21 @@ const navItems = [
 
 const eur = new Intl.NumberFormat('nl-NL', { style: 'currency', currency: 'EUR' })
 const sessionKeys = {
-  authenticated: 'nova.authenticated',
-  onboarded: 'nova.onboarded',
-  activeCompanyId: 'nova.activeCompanyId',
+  authenticated: 'brenqo.authenticated',
+  onboarded: 'brenqo.onboarded',
+  activeCompanyId: 'brenqo.activeCompanyId',
 } as const
 const workspaceVersion = '2026-07-03-1'
 const workspaceKeys = {
-  version: 'nova.workspace.version',
-  companies: 'nova.workspace.companies',
-  companySettings: 'nova.workspace.companySettings',
-  teamMembers: 'nova.workspace.teamMembers',
-  products: 'nova.workspace.products',
-  customers: 'nova.workspace.customers',
-  invoices: 'nova.workspace.invoices',
-  quotes: 'nova.workspace.quotes',
-  auditEvents: 'nova.workspace.auditEvents',
+  version: 'brenqo.workspace.version',
+  companies: 'brenqo.workspace.companies',
+  companySettings: 'brenqo.workspace.companySettings',
+  teamMembers: 'brenqo.workspace.teamMembers',
+  products: 'brenqo.workspace.products',
+  customers: 'brenqo.workspace.customers',
+  invoices: 'brenqo.workspace.invoices',
+  quotes: 'brenqo.workspace.quotes',
+  auditEvents: 'brenqo.workspace.auditEvents',
 } as const
 
 function readSessionFlag(key: string) {
@@ -817,12 +838,12 @@ function App() {
       auditEvents: auditRecords,
     }
 
-    window.localStorage.setItem('nova.workspace.lastExport', JSON.stringify(payload))
+    window.localStorage.setItem('brenqo.workspace.lastExport', JSON.stringify(payload))
     const blob = new Blob([JSON.stringify(payload, null, 2)], { type: 'application/json' })
     const url = window.URL.createObjectURL(blob)
     const link = document.createElement('a')
     link.href = url
-    link.download = `nova-office-export-${todayIso()}.json`
+    link.download = `brenqo-export-${todayIso()}.json`
     link.click()
     window.URL.revokeObjectURL(url)
     appendAudit(activeCompanyId, 'Werkruimte-export voorbereid', 'settings', activeCompanyId)
@@ -1075,7 +1096,7 @@ function App() {
 function AuthScreen({ onLogin }: { onLogin: () => void }) {
   const [mode, setMode] = useState<'login' | 'register' | 'forgot'>('login')
   const titles = {
-    login: 'Inloggen bij NOVA Office',
+    login: 'Inloggen bij Brenqo',
     register: 'Nieuw account aanmaken',
     forgot: 'Wachtwoord herstellen',
   }
@@ -1084,7 +1105,7 @@ function AuthScreen({ onLogin }: { onLogin: () => void }) {
     <div className="auth-page">
       <section className="auth-visual">
         <Brand />
-        <h1>Welkom bij NOVA Office</h1>
+        <h1>Welkom bij Brenqo</h1>
         <p>Een schaalbare bedrijfsomgeving voor dashboard, klanten, facturen, offertes, rollen en meerdere bedrijven.</p>
         <div className="auth-stats">
           <Metric label="Bedrijven" value="2" />
@@ -1096,9 +1117,9 @@ function AuthScreen({ onLogin }: { onLogin: () => void }) {
         <p className="eyebrow">Authenticatie</p>
         <h2>{titles[mode]}</h2>
         {mode === 'register' && <label>Naam<input defaultValue="Glen Mulder" /></label>}
-        <label>E-mailadres<input defaultValue="ondernemer@novaoffice.nl" /></label>
-        {mode !== 'forgot' && <label>Wachtwoord<input defaultValue="novademo2026" type="password" /></label>}
-        {mode === 'register' && <label>Bedrijfsnaam<input defaultValue="NOVA Demo BV" /></label>}
+        <label>E-mailadres<input defaultValue="ondernemer@brenqo.nl" /></label>
+        {mode !== 'forgot' && <label>Wachtwoord<input defaultValue="brenqodemo2026" type="password" /></label>}
+        {mode === 'register' && <label>Bedrijfsnaam<input defaultValue="Muldersign" /></label>}
         <button className="primary full" onClick={onLogin}>
           <LogIn size={18} />
           {mode === 'forgot' ? 'Herstellink simuleren' : 'Doorgaan'}
@@ -1127,7 +1148,7 @@ function OnboardingScreen({ onComplete }: { onComplete: () => void }) {
         <div>
           <p className="eyebrow">Onboarding</p>
           <h1>Richt je bedrijfsomgeving in</h1>
-          <p>NOVA Office koppelt alle administratie aan een bedrijf, zodat het platform geschikt blijft voor meerdere gebruikers en administraties.</p>
+          <p>Brenqo koppelt alle administratie aan een bedrijf, zodat het platform geschikt blijft voor meerdere gebruikers en administraties.</p>
           <div className="data-model">
             {['Users', 'Companies', 'Memberships', 'Roles', 'Customers', 'Invoices', 'InvoiceItems', 'Quotes', 'QuoteItems'].map((item) => (
               <span key={item}>{item}</span>
@@ -1135,10 +1156,10 @@ function OnboardingScreen({ onComplete }: { onComplete: () => void }) {
           </div>
         </div>
         <form className="setup-form">
-          <label>Bedrijfsnaam<input defaultValue="NOVA Demo BV" /></label>
-          <label>KvK-nummer<input defaultValue="87124490" /></label>
-          <label>BTW-nummer<input defaultValue="NL862145901B01" /></label>
-          <label>Startpakket<select defaultValue="NOVA Start"><option>NOVA Start</option><option>NOVA ZZP</option><option>NOVA MKB</option><option>NOVA Enterprise</option></select></label>
+          <label>Bedrijfsnaam<input defaultValue="Muldersign" /></label>
+          <label>KvK-nummer<input defaultValue="88373630" /></label>
+          <label>BTW-nummer<input defaultValue="NL004592528B88" /></label>
+          <label>Startpakket<select defaultValue="Brenqo Start"><option>Brenqo Start</option><option>Brenqo ZZP</option><option>Brenqo MKB</option><option>Brenqo Enterprise</option></select></label>
           <button type="button" className="primary" onClick={onComplete}>Dashboard openen <ArrowRight size={18} /></button>
           <button type="button" className="ghost full" onClick={resetDemo}>Demo opnieuw starten</button>
         </form>
@@ -1567,6 +1588,12 @@ function InvoiceDetail({
       companyName: company.name,
       companyVat: company.vat,
       companyChamber: company.chamber,
+      companyAddress: `${company.address}, ${company.postalCode} ${company.city}`,
+      companyEmail: company.email,
+      companyPhone: company.phone,
+      companyIban: company.iban,
+      companyBic: company.bic,
+      companyLogoUrl: company.logoUrl,
       customerName: customer?.name ?? 'Onbekende klant',
       customerAddress: customer ? `${customer.address}, ${customer.postalCode} ${customer.city}` : '',
       date: invoice.date,
@@ -1809,6 +1836,12 @@ function QuoteDetail({
       companyName: company.name,
       companyVat: company.vat,
       companyChamber: company.chamber,
+      companyAddress: `${company.address}, ${company.postalCode} ${company.city}`,
+      companyEmail: company.email,
+      companyPhone: company.phone,
+      companyIban: company.iban,
+      companyBic: company.bic,
+      companyLogoUrl: company.logoUrl,
       customerName: customer?.name ?? 'Onbekende klant',
       customerAddress: customer ? `${customer.address}, ${customer.postalCode} ${customer.city}` : '',
       date: todayIso(),
@@ -1908,23 +1941,36 @@ function CompanyForm({
   onSave: (company: Company) => void
 }) {
   const [name, setName] = useState(company?.name ?? '')
+  const [address, setAddress] = useState(company?.address ?? '')
+  const [postalCode, setPostalCode] = useState(company?.postalCode ?? '')
   const [city, setCity] = useState(company?.city ?? '')
+  const [phone, setPhone] = useState(company?.phone ?? '')
+  const [email, setEmail] = useState(company?.email ?? '')
+  const [iban, setIban] = useState(company?.iban ?? '')
+  const [bic, setBic] = useState(company?.bic ?? '')
   const [chamber, setChamber] = useState(company?.chamber ?? '')
   const [vat, setVat] = useState(company?.vat ?? '')
   const [role, setRole] = useState<CompanyRole>(company?.role ?? 'Eigenaar')
-  const [plan, setPlan] = useState<CompanyPlan>(company?.plan ?? 'NOVA Start')
+  const [plan, setPlan] = useState<CompanyPlan>(company?.plan ?? 'Brenqo Start')
   const [error, setError] = useState('')
 
   const save = () => {
-    if (!name.trim() || !city.trim() || !chamber.trim() || !vat.trim()) {
-      setError('Vul bedrijfsnaam, plaats, KvK en BTW-nummer in.')
+    if (!name.trim() || !address.trim() || !postalCode.trim() || !city.trim() || !chamber.trim() || !vat.trim()) {
+      setError('Vul bedrijfsnaam, adres, plaats, KvK en BTW-nummer in.')
       return
     }
 
     onSave({
       id: company?.id ?? `comp_${Date.now()}`,
       name,
+      address,
+      postalCode,
       city,
+      phone,
+      email,
+      iban,
+      bic,
+      logoUrl: company?.logoUrl ?? '',
       chamber,
       vat,
       role,
@@ -1939,11 +1985,17 @@ function CompanyForm({
       {error && <p className="form-error">{error}</p>}
       <div className="form-grid">
         <label>Bedrijfsnaam<input value={name} onChange={(event) => setName(event.target.value)} /></label>
+        <label>Adres<input value={address} onChange={(event) => setAddress(event.target.value)} /></label>
+        <label>Postcode<input value={postalCode} onChange={(event) => setPostalCode(event.target.value)} /></label>
         <label>Plaats<input value={city} onChange={(event) => setCity(event.target.value)} /></label>
+        <label>E-mail<input value={email} onChange={(event) => setEmail(event.target.value)} /></label>
+        <label>Telefoon<input value={phone} onChange={(event) => setPhone(event.target.value)} /></label>
         <label>KvK-nummer<input value={chamber} onChange={(event) => setChamber(event.target.value)} /></label>
         <label>BTW-nummer<input value={vat} onChange={(event) => setVat(event.target.value)} /></label>
+        <label>IBAN<input value={iban} onChange={(event) => setIban(event.target.value)} /></label>
+        <label>BIC<input value={bic} onChange={(event) => setBic(event.target.value)} /></label>
         <label>Rol<select value={role} onChange={(event) => setRole(event.target.value as CompanyRole)}><option>Eigenaar</option><option>Beheerder</option><option>Financieel medewerker</option><option>Lezer</option></select></label>
-        <label>Pakket<select value={plan} onChange={(event) => setPlan(event.target.value as CompanyPlan)}><option>NOVA Start</option><option>NOVA ZZP</option><option>NOVA MKB</option><option>NOVA Enterprise</option></select></label>
+        <label>Pakket<select value={plan} onChange={(event) => setPlan(event.target.value as CompanyPlan)}><option>Brenqo Start</option><option>Brenqo ZZP</option><option>Brenqo MKB</option><option>Brenqo Enterprise</option></select></label>
       </div>
       <div className="invoice-actions">
         <button className="ghost" onClick={onCancel}>Annuleren</button>
@@ -2212,8 +2264,8 @@ function SettingsPage({
 function Brand() {
   return (
     <div className="brand">
-      <div className="brand-mark">N</div>
-      <div><strong>NOVA Office</strong><span>Business platform</span></div>
+      <div className="brand-mark">B</div>
+      <div><strong>Brenqo</strong><span>Business platform</span></div>
     </div>
   )
 }

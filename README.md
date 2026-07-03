@@ -1,147 +1,76 @@
-# NOVA Office
+# Brenqo
 
-NOVA Office is een moderne SaaS-webapp voor ondernemers. De eerste ontwikkelfase richt zich uitsluitend op de schaalbare fundering: authenticatie, multi-tenant bedrijvenbeheer, dashboard, klanten, facturen, offertes, databasecontract, rollen en design-system.
+Brenqo is een moderne SaaS-webapp voor ondernemers. De MVP-fundering richt zich op echte SaaS-basis: authenticatie, multi-tenant bedrijvenbeheer, klanten, producten/diensten, facturen, offertes, teamrollen, bedrijfsinstellingen, documentoutput en een voorbereid database/API-contract.
 
-De eerste versie is een werkende MVP met demo-data, gericht op structuur, snelheid, heldere navigatie en een premium zakelijke gebruikerservaring.
-
-## Fase 1: MVP-fundering
-
-Deze fase bouwt nog geen boekhouding, bankkoppelingen of AI-processen. Die modules komen pas nadat de fundering stabiel is.
-
-Scope:
+## Huidige Scope
 
 - Registreren, inloggen en wachtwoord vergeten
 - Multi-tenant architectuur waarin een gebruiker meerdere bedrijven kan beheren
-- Dashboard voor de actieve tenant
-- Klantenoverzicht, klantdetail, klant toevoegen en klant bewerken
-- Factuuroverzicht, factuur aanmaken, factuurdetail en status wijzigen
-- Offerteoverzicht, offerte aanmaken, offertedetail en offerte omzetten naar factuur
-- Globaal zoeken, statusfilters, lege-resultaten-states en snelle betalingregistratie
-- Databasecontract voor de fundering
-- Rollen- en rechtenstructuur
-- Design-system/componentenbasis
-- Persistente MVP-werkruimte in de browser met auditlog, exportvoorbereiding en demo-reset
+- Dashboard voor de actieve administratie
+- Klantenbeheer
+- Producten en diensten
+- Facturen en offertes met productregels, statusflow, dupliceren, bewerken en verwijderen
+- Teamleden uitnodigen en rollen wijzigen
+- Bedrijfsinstellingen per administratie
+- HTML-documentdownloads voor facturen en offertes
+- Backend/API-contracten en SQL-migraties
+- Workspace adapter als tussenlaag richting Supabase
 
-## Module-notities
+## Merk En Bedrijfsbasis
 
-### Facturen
+Appnaam: Brenqo
 
-De factuurmodule ondersteunt een eerste professionele aanmaakflow met klantkeuze, automatisch factuurnummer, factuurdatum, vervaldatum, betalingstermijn, status, factuurregels, BTW-keuze, subtotalen en PDF-preview.
+Eerste administratie:
 
-Volgende uitbreidingen:
+- Muldersign
+- KvK: 88373630
+- BTW: NL004592528B88
+- Adres: De Kolk 10, 9656PJ Spijkerboor
+- Telefoon: +31 (0) 639232306
+- E-mail: administratie@muldersign.nl
+- IBAN: NL94 RABO 0338 4823 85
+- BIC: RABONL2U
 
-- Factuur opslaan in state/backend
-- PDF genereren
-- Betaling registreren
-- Herinneringen automatisch voorbereiden
-- Factuurregels voorstellen op basis van klant, offerte of uren zodra AI in een latere fase wordt geactiveerd
+## Supabase
 
-## SaaS-architectuur
+Supabase is gekozen voor de volgende MVP-stap: echte auth + database. Maak lokaal een `.env` op basis van `.env.example`:
 
-De app is voorbereid op multi-tenant gebruik. Alle demo-entiteiten bevatten een `companyId`, zodat iedere administratie gekoppeld kan worden aan een bedrijf.
+```bash
+VITE_SUPABASE_URL=
+VITE_SUPABASE_ANON_KEY=
+VITE_APP_NAME=Brenqo
+VITE_APP_DOMAIN=https://brenqo.nl
+VITE_MAIL_FROM=send@brenqo.nl
+```
 
-De huidige MVP bewaart klant-, factuur-, offerte- en auditdata persistent in de browser. Dit is bewust een tussenstap richting een echte backend: de UI en domeinregels gedragen zich al alsof er een werkruimte bestaat, terwijl de volgende fase de opslag verplaatst naar API + database.
-
-Er is nu ook een eerste backendfoundation aanwezig:
-
-- TypeScript database-schema in `src/backend/schema.ts`
-- Tenant-aware repositorylaag in `src/backend/repository.ts`
-- Rollen/rechten in `src/backend/auth.ts`
-- API-contracthandlers in `src/backend/api.ts`
-- Eerste SQL-migratie in `database/migrations/001_foundation.sql`
-- Backendtests voor tenant-isolatie, rechten en audit-events
-
-Fase-1 kernentiteiten:
-
-- Users
-- Companies
-- CompanyMemberships
-- Roles
-- Customers
-- Invoices
-- InvoiceItems
-- Quotes
-- QuoteItems
-- AuditEvents
-
-## Ontwikkelmethode
-
-We werken in kleine iteraties:
-
-1. Bouwen
-2. Testen
-3. Verbeteren
-4. Committen
-5. Deployen
-6. Herhalen
-
-Iedere belangrijke wijziging krijgt een duidelijke commit message. Feature branches worden gebruikt voor grotere of risicovollere wijzigingen.
+Zet geen wachtwoorden, SMTP-passwords of service-role keys in Git. Die horen later in Cloud86/Plesk of Supabase secrets.
 
 ## Development
 
-Installeer dependencies:
-
 ```bash
 npm install
-```
-
-Start de lokale ontwikkelomgeving:
-
-```bash
 npm run dev
-```
-
-Controleer de productiebuild:
-
-```bash
+npm run lint
+npm test
 npm run build
 ```
 
-Controleer linting:
-
-```bash
-npm run lint
-```
-
-Draai de MVP-regressietests:
-
-```bash
-npm test
-```
-
 ## Deployment
-
-Live development draait via GitHub Actions, GitHub Pages en Cloud86/Plesk Git.
 
 Na iedere push naar `main`:
 
 1. Dependencies worden geinstalleerd
 2. Linting draait
-3. De productiebuild wordt gemaakt
-4. De laatste versie wordt gepubliceerd naar de `gh-pages` branch
-5. Cloud86/Plesk haalt de `gh-pages` branch op en publiceert naar het subdomein
+3. Tests draaien
+4. De productiebuild wordt gemaakt
+5. De laatste versie wordt gepubliceerd naar `gh-pages`
+6. Cloud86/Plesk publiceert de nieuwste build
 
-Live omgevingen:
+Live:
 
-- Cloud86 development: <https://nova-office.muldersign.nl>
-- GitHub Pages preview: <https://muldersign.github.io/nova-office/>
+- Huidige omgeving: https://nova-office.muldersign.nl
+- Nieuwe domeinnaam in voorbereiding: https://brenqo.nl
 
 ## Referentieonderzoek
 
-Jortt mag uitsluitend functioneel worden gebruikt als referentie voor flows, navigatie en boekhoudprocessen.
-
-Niet kopieren:
-
-- Code
-- HTML
-- CSS
-- Afbeeldingen
-- Iconen
-- Teksten
-- Componenten
-- Kleuren
-- Illustraties
-- Logo's
-- Specifieke designs
-
-NOVA Office behoudt een eigen merkidentiteit, interactiepatronen en visuele stijl.
+Jortt mag uitsluitend functioneel worden gebruikt als referentie voor flows, navigatie en boekhoudprocessen. Brenqo behoudt een eigen merkidentiteit, codebase, interactiepatronen en visuele stijl.

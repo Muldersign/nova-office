@@ -7,6 +7,12 @@ export type PrintableDocument = {
   companyName: string
   companyVat: string
   companyChamber: string
+  companyAddress?: string
+  companyEmail?: string
+  companyPhone?: string
+  companyIban?: string
+  companyBic?: string
+  companyLogoUrl?: string
   customerName: string
   customerAddress: string
   date: string
@@ -27,11 +33,13 @@ export function createPrintableDocumentHtml(document: PrintableDocument) {
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>${label} ${escapeHtml(document.number)} - NOVA Office</title>
+  <title>${label} ${escapeHtml(document.number)} - Brenqo</title>
   <style>
     body { margin: 0; font-family: Inter, Arial, sans-serif; color: #101828; background: #f5f7fb; }
     main { max-width: 880px; margin: 32px auto; background: #fff; border: 1px solid #e5e7eb; border-radius: 8px; padding: 40px; }
     header { display: flex; justify-content: space-between; gap: 24px; border-bottom: 1px solid #e5e7eb; padding-bottom: 28px; }
+    .company { text-align: right; }
+    .company img { width: 96px; height: auto; object-fit: contain; margin-bottom: 12px; }
     h1 { margin: 0 0 8px; font-size: 36px; }
     h2 { margin: 0 0 8px; font-size: 18px; }
     p, span { color: #667085; }
@@ -54,9 +62,10 @@ export function createPrintableDocumentHtml(document: PrintableDocument) {
         <h1>${label} ${escapeHtml(document.number)}</h1>
         <p>Datum: ${escapeHtml(document.date)}<br>${secondaryDate}</p>
       </div>
-      <div>
+      <div class="company">
+        ${document.companyLogoUrl ? `<img src="${escapeHtml(document.companyLogoUrl)}" alt="${escapeHtml(document.companyName)} logo">` : ''}
         <h2>${escapeHtml(document.companyName)}</h2>
-        <p>KvK ${escapeHtml(document.companyChamber)}<br>BTW ${escapeHtml(document.companyVat)}</p>
+        <p>${escapeHtml(document.companyAddress ?? '')}<br>KvK ${escapeHtml(document.companyChamber)}<br>BTW ${escapeHtml(document.companyVat)}<br>${escapeHtml(document.companyEmail ?? '')}<br>${escapeHtml(document.companyPhone ?? '')}</p>
       </div>
     </header>
     <section>
@@ -77,6 +86,9 @@ export function createPrintableDocumentHtml(document: PrintableDocument) {
       <div><span>BTW</span><strong>${formatEuro(totals.vatTotal)}</strong></div>
       <div class="total"><span>Totaal</span><strong>${formatEuro(totals.total)}</strong></div>
     </section>
+    <footer>
+      <p>Betaling: ${escapeHtml(document.companyIban ?? '-')} ${document.companyBic ? `- BIC ${escapeHtml(document.companyBic)}` : ''}</p>
+    </footer>
   </main>
 </body>
 </html>`

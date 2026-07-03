@@ -17,7 +17,15 @@ export type CompanyRecord = {
   name: string
   kvkNumber: string
   vatNumber: string
-  plan: 'NOVA Start' | 'NOVA ZZP' | 'NOVA MKB' | 'NOVA Enterprise'
+  address: string
+  postalCode: string
+  city: string
+  phone: string
+  email: string
+  iban: string
+  bic: string
+  logoUrl: string
+  plan: 'Brenqo Start' | 'Brenqo ZZP' | 'Brenqo MKB' | 'Brenqo Enterprise'
   createdAt: string
 }
 

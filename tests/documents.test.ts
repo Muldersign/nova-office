@@ -7,9 +7,12 @@ test('creates printable invoice HTML with escaped customer content and totals', 
     type: 'invoice',
     number: '2026-0143',
     status: 'Concept',
-    companyName: 'NOVA Demo BV',
+    companyName: 'Muldersign',
     companyVat: 'NL862145901B01',
     companyChamber: '87124490',
+    companyAddress: 'De Kolk 10, 9656PJ Spijkerboor',
+    companyIban: 'NL94 RABO 0338 4823 85',
+    companyBic: 'RABONL2U',
     customerName: '<Studio Veldkamp>',
     customerAddress: 'Keizersgracht 214',
     date: '2026-07-03',
@@ -20,6 +23,7 @@ test('creates printable invoice HTML with escaped customer content and totals', 
   assert.match(html, /Factuur 2026-0143/)
   assert.match(html, /&lt;Studio Veldkamp&gt;/)
   assert.match(html, /€\s*242,00/)
+  assert.match(html, /NL94 RABO 0338 4823 85/)
 })
 
 test('creates printable quote HTML with validity date', () => {
@@ -27,7 +31,7 @@ test('creates printable quote HTML with validity date', () => {
     type: 'quote',
     number: 'OFF-2026-056',
     status: 'Verzonden',
-    companyName: 'NOVA Demo BV',
+    companyName: 'Brenqo Demo BV',
     companyVat: 'NL862145901B01',
     companyChamber: '87124490',
     customerName: 'Rijnhaven Logistics',

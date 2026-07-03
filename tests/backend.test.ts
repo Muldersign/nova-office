@@ -11,7 +11,7 @@ function seededDatabase(): NovaDatabase {
   database.users.push({
     id: 'usr_owner',
     name: 'Owner',
-    email: 'owner@nova.test',
+    email: 'owner@brenqo.test',
     passwordHash: 'hash',
     createdAt: '2026-07-03T00:00:00.000Z',
   })
@@ -21,7 +21,15 @@ function seededDatabase(): NovaDatabase {
       name: 'Company A',
       kvkNumber: '100',
       vatNumber: 'NL100',
-      plan: 'NOVA Start',
+      address: 'Street 1',
+      postalCode: '1000 AA',
+      city: 'Groningen',
+      phone: '050',
+      email: 'owner@brenqo.test',
+      iban: 'NL00 TEST 0000 0000 00',
+      bic: 'TESTNL2A',
+      logoUrl: '',
+      plan: 'Brenqo Start',
       createdAt: '2026-07-03T00:00:00.000Z',
     },
     {
@@ -29,7 +37,15 @@ function seededDatabase(): NovaDatabase {
       name: 'Company B',
       kvkNumber: '200',
       vatNumber: 'NL200',
-      plan: 'NOVA Start',
+      address: 'Street 2',
+      postalCode: '2000 AA',
+      city: 'Assen',
+      phone: '0592',
+      email: 'hidden@brenqo.test',
+      iban: 'NL00 TEST 0000 0000 01',
+      bic: 'TESTNL2A',
+      logoUrl: '',
+      plan: 'Brenqo Start',
       createdAt: '2026-07-03T00:00:00.000Z',
     },
   )
@@ -45,7 +61,7 @@ function seededDatabase(): NovaDatabase {
     companyId: 'comp_b',
     companyName: 'Hidden BV',
     contactName: 'Hidden',
-    email: 'hidden@nova.test',
+    email: 'hidden@brenqo.test',
     phone: '000',
     address: 'Hidden 1',
     postalCode: '0000 AA',
@@ -63,7 +79,7 @@ test('backend repository never leaks customers across companies', () => {
   const created = createCustomer(database, { userId: 'usr_owner', companyId: 'comp_a' }, {
     companyName: 'Visible BV',
     contactName: 'Visible',
-    email: 'visible@nova.test',
+    email: 'visible@brenqo.test',
     phone: '123',
     address: 'Main 1',
     postalCode: '9711 AA',
@@ -97,7 +113,7 @@ test('backend API writes audit events for customer creation', () => {
   const result = api.customers.create(database, { userId: 'usr_owner', companyId: 'comp_a' }, {
     companyName: 'Audit BV',
     contactName: 'Audrey',
-    email: 'audit@nova.test',
+    email: 'audit@brenqo.test',
     phone: '123',
     address: 'Log 1',
     postalCode: '9711 AB',
@@ -115,9 +131,9 @@ test('auth registration creates user, company, membership and session', () => {
   const database = emptyDatabase()
   const session = registerUser(database, {
     name: 'Glen',
-    email: 'glen@nova.test',
-    password: 'novapass2026',
-    companyName: 'NOVA BV',
+    email: 'glen@brenqo.test',
+    password: 'brenqopass2026',
+    companyName: 'Brenqo BV',
     kvkNumber: '123',
     vatNumber: 'NL123',
   })
@@ -125,7 +141,7 @@ test('auth registration creates user, company, membership and session', () => {
   assert.equal(database.users.length, 1)
   assert.equal(database.companies.length, 1)
   assert.equal(database.memberships[0].role, 'owner')
-  assert.equal(loginUser(database, 'glen@nova.test', 'novapass2026').activeCompanyId, session.activeCompanyId)
+  assert.equal(loginUser(database, 'glen@brenqo.test', 'brenqopass2026').activeCompanyId, session.activeCompanyId)
 })
 
 test('backend updates and deletes invoice lines inside tenant scope', () => {
@@ -135,7 +151,7 @@ test('backend updates and deletes invoice lines inside tenant scope', () => {
     companyId: 'comp_a',
     companyName: 'Visible BV',
     contactName: 'Visible',
-    email: 'visible@nova.test',
+    email: 'visible@brenqo.test',
     phone: '123',
     address: 'Main 1',
     postalCode: '9711 AA',

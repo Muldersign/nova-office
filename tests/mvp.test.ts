@@ -42,6 +42,6 @@ test('applies basic role based access rules', () => {
 })
 
 test('validates required customer fields', () => {
-  assert.equal(validateRequiredCustomer({ name: 'NOVA BV', email: 'finance@nova.nl', city: 'Amsterdam' }), true)
-  assert.equal(validateRequiredCustomer({ name: '', email: 'finance-at-nova.nl', city: '' }), false)
+  assert.equal(validateRequiredCustomer({ name: 'Brenqo BV', email: 'finance@brenqo.nl', city: 'Amsterdam' }), true)
+  assert.equal(validateRequiredCustomer({ name: '', email: 'finance-at-brenqo.nl', city: '' }), false)
 })

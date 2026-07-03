@@ -11,6 +11,14 @@ CREATE TABLE companies (
   name TEXT NOT NULL,
   kvk_number TEXT NOT NULL,
   vat_number TEXT NOT NULL,
+  address TEXT NOT NULL,
+  postal_code TEXT NOT NULL,
+  city TEXT NOT NULL,
+  phone TEXT NOT NULL,
+  email TEXT NOT NULL,
+  iban TEXT NOT NULL,
+  bic TEXT NOT NULL,
+  logo_url TEXT NOT NULL,
   plan TEXT NOT NULL,
   created_at TEXT NOT NULL
 );

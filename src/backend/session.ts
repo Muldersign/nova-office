@@ -37,7 +37,15 @@ export function registerUser(database: NovaDatabase, input: RegisterInput): Sess
     name: input.companyName,
     kvkNumber: input.kvkNumber,
     vatNumber: input.vatNumber,
-    plan: 'NOVA Start',
+    address: '',
+    postalCode: '',
+    city: '',
+    phone: '',
+    email: user.email,
+    iban: '',
+    bic: '',
+    logoUrl: '',
+    plan: 'Brenqo Start',
     createdAt,
   }
   const membership: MembershipRecord = {
