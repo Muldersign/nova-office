@@ -528,6 +528,35 @@ function writeWorkspaceRecords<T>(key: string, records: T[]) {
   createWorkspaceStore(storage, workspaceKeys.version, workspaceVersion).write(key, records)
 }
 
+function rememberRemoteWorkspace(remote: {
+  companies: Array<Record<string, unknown>>
+  companySettings: unknown[]
+  teamMembers: unknown[]
+  products: unknown[]
+  customers: unknown[]
+  invoices: unknown[]
+  quotes: unknown[]
+  auditEvents: unknown[]
+}) {
+  const remoteCompanyId = String(remote.companies[0]?.id ?? '')
+  if (!remoteCompanyId) {
+    return ''
+  }
+
+  writeWorkspaceRecords(workspaceKeys.companies, remote.companies)
+  writeWorkspaceRecords(workspaceKeys.companySettings, remote.companySettings)
+  writeWorkspaceRecords(workspaceKeys.teamMembers, remote.teamMembers)
+  writeWorkspaceRecords(workspaceKeys.products, remote.products)
+  writeWorkspaceRecords(workspaceKeys.customers, remote.customers)
+  writeWorkspaceRecords(workspaceKeys.invoices, remote.invoices)
+  writeWorkspaceRecords(workspaceKeys.quotes, remote.quotes)
+  writeWorkspaceRecords(workspaceKeys.auditEvents, remote.auditEvents)
+  window.localStorage.setItem(sessionKeys.activeCompanyId, remoteCompanyId)
+  window.localStorage.setItem(sessionKeys.onboarded, 'true')
+
+  return remoteCompanyId
+}
+
 function resetWorkspaceStorage() {
   if (typeof window === 'undefined') {
     return
@@ -555,6 +584,7 @@ function readActiveCompanyId() {
 }
 
 function App() {
+  const [workspaceLoading, setWorkspaceLoading] = useState(false)
   const [screen, setScreen] = useState<Screen>(() => {
     if (!readSessionFlag(sessionKeys.authenticated)) {
       return 'login'
@@ -617,6 +647,45 @@ function App() {
   const nextInvoiceNumber = nextDocumentNumber(companyInvoices.map((invoice) => invoice.number), activeSettings.invoicePrefix)
   const nextQuoteNumber = nextDocumentNumber(companyQuotes.map((quote) => quote.number), activeSettings.quotePrefix, 3)
 
+  const applyRemoteWorkspace = (remote: Awaited<ReturnType<typeof loadRemoteWorkspace>>) => {
+    if (!remote || remote.companies.length === 0) {
+      return false
+    }
+
+    setCompanyRecords(remote.companies as Company[])
+    setSettingsRecords(remote.companySettings as CompanySettings[])
+    setTeamRecords(remote.teamMembers as TeamMember[])
+    setProductRecords(remote.products as Product[])
+    setCustomerRecords(remote.customers as Customer[])
+    setInvoiceRecords(remote.invoices as Invoice[])
+    setQuoteRecords(remote.quotes as Quote[])
+    setAuditRecords(remote.auditEvents as AuditEvent[])
+
+    const remoteCompanyId = rememberRemoteWorkspace(remote)
+    if (remoteCompanyId) {
+      setActiveCompanyIdState(remoteCompanyId)
+      setScreen('dashboard')
+      return true
+    }
+
+    return false
+  }
+
+  const hydrateRemoteWorkspace = async () => {
+    const client = getSupabaseClient()
+    if (!client) {
+      return false
+    }
+
+    const { data } = await client.auth.getSession()
+    if (!data.session) {
+      return false
+    }
+
+    const remote = await loadRemoteWorkspace(client)
+    return applyRemoteWorkspace(remote)
+  }
+
   useEffect(() => {
     writeWorkspaceRecords(workspaceKeys.companies, companyRecords)
   }, [companyRecords])
@@ -668,16 +737,7 @@ function App() {
         return
       }
 
-      setCompanyRecords(remote.companies as Company[])
-      setSettingsRecords(remote.companySettings as CompanySettings[])
-      setTeamRecords(remote.teamMembers as TeamMember[])
-      setProductRecords(remote.products as Product[])
-      setCustomerRecords(remote.customers as Customer[])
-      setInvoiceRecords(remote.invoices as Invoice[])
-      setQuoteRecords(remote.quotes as Quote[])
-      setAuditRecords(remote.auditEvents as AuditEvent[])
-      setActiveCompanyIdState(String(remote.companies[0].id))
-      window.localStorage.setItem(sessionKeys.activeCompanyId, String(remote.companies[0].id))
+      applyRemoteWorkspace(remote)
     })
 
     return () => {
@@ -690,8 +750,15 @@ function App() {
     window.localStorage.setItem(sessionKeys.activeCompanyId, nextCompanyId)
   }
 
-  const completeLogin = () => {
+  const completeLogin = async () => {
+    setWorkspaceLoading(true)
     window.localStorage.setItem(sessionKeys.authenticated, 'true')
+    const remoteLoaded = await hydrateRemoteWorkspace()
+    setWorkspaceLoading(false)
+    if (remoteLoaded) {
+      return
+    }
+
     setScreen(readSessionFlag(sessionKeys.onboarded) ? 'dashboard' : 'onboarding')
   }
 
@@ -709,6 +776,10 @@ function App() {
 
   if (screen === 'login') {
     return <AuthScreen onLogin={completeLogin} />
+  }
+
+  if (workspaceLoading) {
+    return <WorkspaceLoading />
   }
 
   if (screen === 'onboarding') {
@@ -1171,7 +1242,27 @@ function App() {
   )
 }
 
-function AuthScreen({ onLogin }: { onLogin: () => void }) {
+function WorkspaceLoading() {
+  return (
+    <div className="onboarding-page">
+      <Brand />
+      <section className="onboarding-grid">
+        <div>
+          <p className="eyebrow">Werkruimte laden</p>
+          <h1>We zetten je Brenqo omgeving klaar</h1>
+          <p>Je bedrijf, rollen en administratie worden opgehaald uit Supabase.</p>
+        </div>
+        <div className="setup-form">
+          <span className="pill">Even geduld</span>
+          <strong>Live database verbonden</strong>
+          <p>Na het laden opent automatisch je dashboard.</p>
+        </div>
+      </section>
+    </div>
+  )
+}
+
+function AuthScreen({ onLogin }: { onLogin: () => Promise<void> }) {
   const [activeProduct, setActiveProduct] = useState('Facturen')
   const [demoName, setDemoName] = useState('')
   const [demoEmail, setDemoEmail] = useState('')
@@ -1240,7 +1331,7 @@ function AuthScreen({ onLogin }: { onLogin: () => void }) {
     setAuthBusy(false)
     setAuthMessage(result.message)
     if (result.ok && authMode !== 'forgot') {
-      onLogin()
+      await onLogin()
     }
   }
 
