@@ -1084,10 +1084,37 @@ textarea {
   position: sticky;
   top: 0;
   height: 100vh;
+  display: flex;
+  flex-direction: column;
   padding: 22px;
   background: var(--nav);
   color: #fff;
   overflow-y: auto;
+}
+
+.sidebar-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.sidebar-close,
+.sidebar-logout {
+  border: 0;
+  border-radius: 8px;
+  min-height: 42px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-weight: 800;
+}
+
+.sidebar-close {
+  padding: 0 12px;
+  background: rgba(255, 255, 255, 0.1);
+  color: #fff;
 }
 
 .company-switch {
@@ -1162,6 +1189,18 @@ nav button:hover {
   border-radius: 8px;
   background: linear-gradient(135deg, rgba(24, 119, 242, 0.28), rgba(19, 163, 111, 0.18));
   color: #fff;
+}
+
+.sidebar-footer {
+  margin-top: auto;
+  padding-top: 18px;
+}
+
+.sidebar-logout {
+  width: 100%;
+  padding: 0 14px;
+  background: #fff;
+  color: var(--nav);
 }
 
 .plan-card span {
@@ -2660,24 +2699,112 @@ th {
   }
 
   .table-wrap {
-    margin: 0 -16px;
-    padding: 0 16px 4px;
-    overflow-x: auto;
-    -webkit-overflow-scrolling: touch;
+    margin: 0;
+    padding: 0;
+    overflow-x: visible;
   }
 
   table {
-    min-width: 680px;
+    display: block;
+    min-width: 0;
+    width: 100%;
+  }
+
+  thead {
+    display: none;
+  }
+
+  tbody {
+    display: grid;
+    gap: 10px;
+    width: 100%;
+  }
+
+  tr {
+    display: grid;
+    width: 100%;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fff;
+    overflow: hidden;
   }
 
   th,
   td {
-    padding: 12px 10px;
+    width: 100%;
+    min-width: 0;
+    padding: 10px 12px;
+    border-bottom: 1px solid var(--line);
+    white-space: normal;
+    overflow-wrap: anywhere;
+  }
+
+  td {
+    display: grid;
+    grid-template-columns: minmax(92px, 0.42fr) minmax(0, 1fr);
+    gap: 12px;
+    align-items: center;
+  }
+
+  td::before {
+    content: attr(data-label);
+    color: var(--muted);
+    font-size: 11px;
+    font-weight: 900;
+    text-transform: uppercase;
+  }
+
+  td:last-child {
+    border-bottom: 0;
+  }
+
+  .empty-cell {
+    display: block;
+    text-align: left;
+  }
+
+  .empty-cell::before {
+    content: '';
   }
 
   .sidebar {
-    width: min(86vw, 320px);
+    width: 100vw;
+    max-width: 100vw;
+    height: 100dvh;
+    overflow: hidden;
     padding-bottom: 32px;
+  }
+
+  .sidebar-head {
+    align-items: center;
+  }
+
+  .sidebar-close {
+    flex: 0 0 auto;
+    min-height: 38px;
+    padding: 0 10px;
+    font-size: 14px;
+  }
+
+  .sidebar nav {
+    flex: 1;
+    min-height: 0;
+    overflow-y: auto;
+    padding-right: 4px;
+  }
+
+  .sidebar .plan-card {
+    display: none;
+  }
+
+  .sidebar-footer.mobile-only {
+    display: block;
+    position: sticky;
+    bottom: 0;
+    z-index: 2;
+    margin-top: 12px;
+    padding: 12px 0 0;
+    background: linear-gradient(180deg, rgba(9, 15, 31, 0), var(--nav) 28%);
   }
 }
 

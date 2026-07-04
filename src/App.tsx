@@ -21,6 +21,7 @@ import {
   FilePlus2,
   FileText,
   LayoutDashboard,
+  LogOut,
   Menu,
   Package,
   Plus,
@@ -1142,7 +1143,13 @@ function App() {
   return (
     <div className="app-shell">
       <aside className={`sidebar ${menuOpen ? 'open' : ''}`}>
-        <Brand />
+        <div className="sidebar-head">
+          <Brand />
+          <button className="sidebar-close mobile-only" onClick={() => setMenuOpen(false)} aria-label="Menu sluiten">
+            <X size={18} />
+            Menu sluiten
+          </button>
+        </div>
         <div className="company-switch">
           <Building2 size={18} />
           <div>
@@ -1176,6 +1183,12 @@ function App() {
           <strong>{activeCompany.plan}</strong>
           <span>{planHealthy ? 'Gebruik binnen pakket.' : 'Pakketlimiet bereikt.'}</span>
           <button onClick={() => navigate('subscription')}>Pakket bekijken</button>
+        </div>
+        <div className="sidebar-footer mobile-only">
+          <button className="sidebar-logout" onClick={logout}>
+            <LogOut size={18} />
+            Uitloggen
+          </button>
         </div>
       </aside>
 
@@ -3555,7 +3568,11 @@ function DataTable({ columns, rows }: { columns: string[]; rows: ReactNode[][] }
               <td className="empty-cell" colSpan={columns.length}>Geen resultaten binnen deze administratie.</td>
             </tr>
           )}
-          {rows.map((row, index) => <tr key={index}>{row.map((cell, cellIndex) => <td key={cellIndex}>{cell}</td>)}</tr>)}
+          {rows.map((row, index) => (
+            <tr key={index}>
+              {row.map((cell, cellIndex) => <td key={cellIndex} data-label={columns[cellIndex]}>{cell}</td>)}
+            </tr>
+          ))}
         </tbody>
       </table>
     </div>
