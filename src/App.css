@@ -2771,7 +2771,10 @@ th {
     width: 100vw;
     max-width: 100vw;
     height: 100dvh;
-    overflow: hidden;
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch;
     padding-bottom: 32px;
   }
 
@@ -2787,10 +2790,10 @@ th {
   }
 
   .sidebar nav {
-    flex: 1;
-    min-height: 0;
-    overflow-y: auto;
-    padding-right: 4px;
+    flex: 0 0 auto;
+    min-height: auto;
+    overflow: visible;
+    padding-right: 0;
   }
 
   .sidebar .plan-card {
