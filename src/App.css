@@ -36,6 +36,30 @@ textarea {
 
 button {
   cursor: pointer;
+  max-width: 100%;
+}
+
+.app-shell,
+.workspace,
+.topbar,
+.topbar-actions,
+.search,
+.content-grid,
+.workspace-hero,
+.panel,
+.metric,
+.settings-block,
+.report-tile,
+.quick-actions,
+.quick-actions button,
+.suggestions span,
+.task,
+.live-list span,
+.detail-list span,
+.report-list button,
+.task-board button,
+.prompt-grid button {
+  min-width: 0;
 }
 
 .auth-page {
@@ -1049,8 +1073,11 @@ textarea {
 
 .app-shell {
   min-height: 100vh;
+  width: 100%;
+  max-width: 100vw;
   display: grid;
   grid-template-columns: 280px minmax(0, 1fr);
+  overflow-x: clip;
 }
 
 .sidebar {
@@ -1155,7 +1182,10 @@ nav button:hover {
 
 .workspace {
   min-width: 0;
+  width: 100%;
+  max-width: 100%;
   padding: 24px;
+  overflow-x: clip;
 }
 
 .topbar {
@@ -1517,6 +1547,12 @@ nav button:hover {
   justify-content: center;
   gap: 9px;
   font-weight: 800;
+  overflow-wrap: anywhere;
+  white-space: normal;
+}
+
+.quick-actions button svg {
+  flex: 0 0 auto;
 }
 
 .table-wrap {
@@ -1761,6 +1797,13 @@ th {
   padding: 12px;
   border-radius: 8px;
   background: var(--soft);
+  overflow-wrap: anywhere;
+}
+
+.suggestions span svg,
+.task svg,
+.live-list span svg {
+  flex: 0 0 auto;
 }
 
 .ai-panel {
@@ -2328,12 +2371,18 @@ th {
 
   .app-shell {
     display: block;
+    width: 100%;
+    max-width: 100vw;
+    overflow-x: hidden;
   }
 
   .auth-page,
   .onboarding-page,
   .workspace {
     padding: 16px;
+    width: 100%;
+    max-width: 100vw;
+    overflow-x: hidden;
   }
 
   .auth-page {
@@ -2524,6 +2573,36 @@ th {
   .settings-block,
   .report-tile {
     padding: 16px;
+    width: 100%;
+    max-width: 100%;
+    overflow: hidden;
+  }
+
+  .quick-actions button {
+    min-height: 70px;
+    justify-content: flex-start;
+    padding: 14px;
+    text-align: left;
+  }
+
+  .suggestions span,
+  .task,
+  .live-list span,
+  .ai-check {
+    align-items: flex-start;
+  }
+
+  .suggestions span,
+  .task,
+  .live-list span {
+    line-height: 1.4;
+  }
+
+  .suggestions span svg,
+  .task svg,
+  .live-list span svg,
+  .ai-check svg {
+    margin-top: 2px;
   }
 
   .panel-header {
