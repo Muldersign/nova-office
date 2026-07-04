@@ -1360,6 +1360,147 @@ nav button:hover {
   height: 240px;
 }
 
+.report-hero {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 28px;
+  min-height: 210px;
+  background:
+    radial-gradient(circle at 92% 12%, rgba(24, 119, 242, 0.12), transparent 32%),
+    linear-gradient(135deg, #fff, #f8fbff);
+}
+
+.report-hero h2 {
+  max-width: 780px;
+  margin: 0 0 12px;
+  font-size: 34px;
+}
+
+.report-hero p,
+.muted-copy {
+  color: var(--muted);
+  line-height: 1.65;
+}
+
+.report-score {
+  min-width: 220px;
+  padding: 20px;
+  display: grid;
+  gap: 8px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: var(--shadow);
+}
+
+.report-score span,
+.report-score em {
+  color: var(--muted);
+  font-style: normal;
+  font-weight: 800;
+}
+
+.report-score strong {
+  font-size: 32px;
+}
+
+.report-list,
+.checklist,
+.task-board,
+.prompt-grid {
+  display: grid;
+  gap: 10px;
+}
+
+.report-list button,
+.task-board button,
+.prompt-grid button {
+  width: 100%;
+  min-height: 76px;
+  padding: 14px;
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto auto;
+  align-items: center;
+  gap: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  text-align: left;
+  transition: transform 0.18s ease, box-shadow 0.18s ease;
+}
+
+.report-list button:hover,
+.task-board button:hover,
+.prompt-grid button:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 16px 42px rgba(16, 24, 40, 0.1);
+}
+
+.report-list button span,
+.task-board button span {
+  display: grid;
+  gap: 4px;
+}
+
+.report-list small,
+.task-board small {
+  color: var(--muted);
+}
+
+.report-list em {
+  color: var(--ink);
+  font-style: normal;
+  font-weight: 900;
+}
+
+.checklist span {
+  min-height: 62px;
+  padding: 14px;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 4px 10px;
+  align-items: center;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.checklist small {
+  grid-column: 2;
+  color: var(--muted);
+}
+
+.checklist .ok svg {
+  color: var(--green);
+}
+
+.checklist .attention svg {
+  color: var(--amber);
+}
+
+.task-board {
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+}
+
+.task-board button {
+  grid-template-columns: minmax(0, 1fr);
+  min-height: 130px;
+}
+
+.task-board strong {
+  font-size: 34px;
+}
+
+.prompt-grid {
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.prompt-grid button {
+  grid-template-columns: 22px minmax(0, 1fr);
+  font-weight: 800;
+}
+
 .quick-actions {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));

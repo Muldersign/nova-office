@@ -43,12 +43,13 @@ function build_document_pdf(array $payload): string
     $content = "";
     pdf_rect($content, 0, 0, 595, 842, '0.97 0.98 1');
     pdf_rect($content, 36, 36, 523, 770, '1 1 1');
-    pdf_rect($content, 36, 36, 523, 82, '0.04 0.06 0.11');
-    pdf_text($content, 'BRENQO', 58, 82, 24, true, '1 1 1');
-    pdf_text($content, $label . ' ' . $number, 58, 58, 15, false, '0.85 0.88 0.95');
-    pdf_text($content, $status, 470, 66, 11, true, '1 1 1');
+    pdf_rect($content, 36, 758, 523, 48, '0.04 0.06 0.11');
+    pdf_rect($content, 514, 758, 45, 48, '0.10 0.76 0.88');
+    pdf_text($content, 'BRENQO', 58, 786, 22, true, '1 1 1');
+    pdf_text($content, $label . ' ' . $number, 58, 766, 12, false, '0.85 0.88 0.95');
+    pdf_text($content, $status, 438, 780, 11, true, '1 1 1');
 
-    pdf_text($content, $company, 58, 748, 18, true);
+    pdf_text($content, $company, 58, 720, 18, true);
     $companyRows = array_filter([
         $companyAddress,
         $companyChamber !== '' ? 'KvK ' . $companyChamber : '',
@@ -56,21 +57,21 @@ function build_document_pdf(array $payload): string
         $companyEmail,
         $companyPhone,
     ]);
-    pdf_multiline($content, implode("\n", $companyRows), 58, 724, 11, 15, 210);
+    pdf_multiline($content, implode("\n", $companyRows), 58, 696, 10, 14, 215);
 
-    pdf_text($content, 'Voor', 338, 748, 11, true, '0.38 0.43 0.52');
-    pdf_text($content, $customer, 338, 728, 16, true);
-    pdf_multiline($content, $customerAddress, 338, 707, 11, 15, 190);
+    pdf_text($content, 'Voor', 338, 720, 11, true, '0.38 0.43 0.52');
+    pdf_text($content, $customer, 338, 700, 17, true);
+    pdf_multiline($content, $customerAddress, 338, 678, 10, 14, 190);
 
-    pdf_rect($content, 58, 620, 480, 74, '0.95 0.97 1');
-    pdf_text($content, 'Document', 78, 665, 10, true, '0.38 0.43 0.52');
-    pdf_text($content, $number, 78, 644, 13, true);
-    pdf_text($content, 'Datum', 230, 665, 10, true, '0.38 0.43 0.52');
-    pdf_text($content, $date, 230, 644, 13, true);
-    pdf_text($content, $documentType === 'quote' ? 'Geldig tot' : 'Vervaldatum', 382, 665, 10, true, '0.38 0.43 0.52');
-    pdf_text($content, $secondaryDate !== '' ? $secondaryDate : '-', 382, 644, 13, true);
+    pdf_rect($content, 58, 592, 480, 74, '0.95 0.97 1');
+    pdf_text($content, 'Document', 78, 637, 10, true, '0.38 0.43 0.52');
+    pdf_text($content, $number, 78, 616, 13, true);
+    pdf_text($content, 'Datum', 230, 637, 10, true, '0.38 0.43 0.52');
+    pdf_text($content, $date, 230, 616, 13, true);
+    pdf_text($content, $documentType === 'quote' ? 'Geldig tot' : 'Vervaldatum', 382, 637, 10, true, '0.38 0.43 0.52');
+    pdf_text($content, $secondaryDate !== '' ? $secondaryDate : '-', 382, 616, 13, true);
 
-    $tableTop = 560;
+    $tableTop = 528;
     pdf_text($content, 'Omschrijving', 58, $tableTop, 10, true, '0.38 0.43 0.52');
     pdf_text($content, 'Aantal', 300, $tableTop, 10, true, '0.38 0.43 0.52');
     pdf_text($content, 'Prijs', 360, $tableTop, 10, true, '0.38 0.43 0.52');
@@ -80,7 +81,7 @@ function build_document_pdf(array $payload): string
 
     $y = $tableTop - 38;
     foreach ($lines as $line) {
-        if (!is_array($line) || $y < 250) {
+        if (!is_array($line) || $y < 238) {
             continue;
         }
         $description = clean_text((string)($line['description'] ?? 'Regel'));
@@ -101,24 +102,26 @@ function build_document_pdf(array $payload): string
         pdf_text($content, 'Nog geen regels toegevoegd.', 58, $y, 11, false, '0.38 0.43 0.52');
     }
 
-    pdf_rect($content, 335, 238, 203, 98, '0.95 0.97 1');
-    pdf_text($content, 'Subtotaal', 355, 306, 11);
-    pdf_text($content, money($subtotal), 460, 306, 11, true);
-    pdf_text($content, 'BTW', 355, 282, 11);
-    pdf_text($content, money($vatTotal), 460, 282, 11, true);
-    pdf_text($content, 'Totaal', 355, 254, 14, true);
-    pdf_text($content, money($total), 450, 254, 14, true);
+    pdf_rect($content, 335, 214, 203, 98, '0.95 0.97 1');
+    pdf_text($content, 'Subtotaal', 355, 282, 11);
+    pdf_text($content, money($subtotal), 460, 282, 11, true);
+    pdf_text($content, 'BTW', 355, 258, 11);
+    pdf_text($content, money($vatTotal), 460, 258, 11, true);
+    pdf_text($content, 'Totaal', 355, 230, 14, true);
+    pdf_text($content, money($total), 450, 230, 14, true);
 
-    pdf_rect($content, 58, 160, 480, 52, '0.98 0.98 0.96');
-    pdf_text($content, 'Betaling', 78, 190, 12, true);
+    pdf_rect($content, 58, 138, 480, 52, '0.98 0.98 0.96');
+    pdf_text($content, 'Betaling', 78, 168, 12, true);
     $paymentRows = array_filter([
         $companyIban !== '' ? 'IBAN ' . $companyIban : '',
         $companyBic !== '' ? 'BIC ' . $companyBic : '',
         $paymentReference !== '' ? 'Kenmerk ' . $paymentReference : '',
     ]);
-    pdf_multiline($content, implode('   ', $paymentRows), 78, 172, 10, 13, 430);
+    pdf_multiline($content, implode('   ', $paymentRows), 78, 150, 10, 13, 430);
 
-    pdf_multiline($content, $footer, 58, 138, 10, 14, 480, '0.38 0.43 0.52');
+    pdf_line($content, 58, 104, 538, 104, '0.86 0.88 0.92');
+    pdf_multiline($content, $footer, 58, 82, 10, 14, 330, '0.38 0.43 0.52');
+    pdf_text($content, 'Gemaakt met Brenqo', 412, 82, 10, true, '0.38 0.43 0.52');
 
     return assemble_pdf($content);
 }

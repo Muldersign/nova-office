@@ -1410,6 +1410,22 @@ function App() {
             onSelectPlan={(plan) => requirePermission(canManageCompany, () => { void updateCompanyPlan(plan) })}
           />
         )}
+        {screen === 'reports' && (
+          <ReportsPage
+            metrics={metrics}
+            invoices={companyInvoices}
+            quotes={companyQuotes}
+            customers={companyCustomers}
+            chartData={dashboardChartData}
+            onNavigate={navigate}
+          />
+        )}
+        {screen === 'vat' && <VatPage metrics={metrics} invoices={companyInvoices} onNavigate={navigate} />}
+        {screen === 'bank' && <BankPage invoices={companyInvoices} onNavigate={navigate} />}
+        {screen === 'accounting' && <AccountingPage invoices={companyInvoices} auditEvents={companyAuditEvents} onNavigate={navigate} />}
+        {screen === 'documents' && <DocumentsPage invoices={companyInvoices} quotes={companyQuotes} onNavigate={navigate} />}
+        {screen === 'tasks' && <TasksPage invoices={companyInvoices} quotes={companyQuotes} customers={companyCustomers} onNavigate={navigate} />}
+        {screen === 'ai' && <AiAssistantPage metrics={metrics} invoices={companyInvoices} quotes={companyQuotes} customers={companyCustomers} onNavigate={navigate} />}
       </main>
     </div>
   )
@@ -3230,6 +3246,271 @@ function AccountPage({
           columns={['Naam', 'E-mail', 'Rol', 'Status']}
           rows={members.map((member) => [member.name, member.email, member.role, <Status key={member.id} label={member.status} />])}
         />
+      </section>
+    </div>
+  )
+}
+
+function ReportsPage({
+  metrics,
+  invoices,
+  quotes,
+  customers,
+  chartData,
+  onNavigate,
+}: {
+  metrics: Record<string, number>
+  invoices: Invoice[]
+  quotes: Quote[]
+  customers: Customer[]
+  chartData: Array<{ month: string; omzet: number; winst: number }>
+  onNavigate: (screen: Screen) => void
+}) {
+  const paid = invoices.filter((invoice) => invoice.status === 'Betaald')
+  const open = invoices.filter((invoice) => invoice.status !== 'Betaald')
+  const acceptedQuotes = quotes.filter((quote) => quote.status === 'Geaccepteerd')
+  const conversion = quotes.length === 0 ? 0 : Math.round((acceptedQuotes.length / quotes.length) * 100)
+  const topCustomers = [...customers].sort((a, b) => b.revenue - a.revenue).slice(0, 5)
+  const reportRows = [
+    ['Winst en verlies', eur.format(metrics.revenue), 'Omzet, btw en betaald resultaat', 'Realtime'],
+    ['Openstaande posten', eur.format(metrics.open), `${open.length} facturen nog te ontvangen`, open.length > 0 ? 'Actie nodig' : 'Rustig'],
+    ['Btw-reservering', eur.format(metrics.vatDue), 'Voorbereid op basis van factuurregels', metrics.vatDue > 0 ? 'Voorbereiden' : 'Geen aangifte'],
+    ['Offerteconversie', `${conversion}%`, `${acceptedQuotes.length} van ${quotes.length} offertes geaccepteerd`, 'Verkoop'],
+  ]
+  const aiInsights = [
+    metrics.open > 0 ? `Er staat ${eur.format(metrics.open)} open. Verstuur herinneringen voor vervallen facturen.` : 'Alle facturen zijn betaald. Cashflow is op orde.',
+    conversion < 50 && quotes.length > 1 ? 'De offerteconversie kan hoger. Volg open offertes binnen 48 uur op.' : 'Offertes presteren stabiel. Zet geaccepteerde offertes sneller om naar factuur.',
+    metrics.vatDue > 0 ? `Reserveer minimaal ${eur.format(metrics.vatDue)} voor btw.` : 'Er is nog geen btw-reservering voor deze maand.',
+  ]
+
+  return (
+    <div className="content-grid">
+      <section className="panel wide report-hero">
+        <div>
+          <p className="eyebrow">Rapportages</p>
+          <h2>In gewone taal zien hoe je bedrijf ervoor staat</h2>
+          <p>Brenqo combineert omzet, openstaande facturen, offertes en btw in rapporten die direct naar een volgende actie leiden.</p>
+        </div>
+        <div className="report-score">
+          <span>Gezondheid</span>
+          <strong>{metrics.overdue > 0 ? 'Let op' : 'Sterk'}</strong>
+          <em>{paid.length} betaalde facturen</em>
+        </div>
+      </section>
+
+      <div className="kpi-grid content-grid">
+        <Metric label="Omzet deze maand" value={eur.format(metrics.revenue)} trend="facturen in huidige maand" />
+        <Metric label="Nog te ontvangen" value={eur.format(metrics.open)} trend={`${open.length} facturen`} />
+        <Metric label="Btw reserveren" value={eur.format(metrics.vatDue)} trend="op basis van verkoop" />
+        <Metric label="Offerteconversie" value={`${conversion}%`} trend={`${acceptedQuotes.length} gewonnen`} />
+      </div>
+
+      <section className="panel wide">
+        <PanelHeader title="Omzet en betaald resultaat" action="Open facturen" onAction={() => onNavigate('invoices')} />
+        <div className="chart">
+          <ResponsiveContainer width="100%" height="100%">
+            <AreaChart data={chartData}>
+              <defs>
+                <linearGradient id="reportRevenue" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="5%" stopColor="#1877f2" stopOpacity={0.26} />
+                  <stop offset="95%" stopColor="#1877f2" stopOpacity={0} />
+                </linearGradient>
+                <linearGradient id="reportProfit" x1="0" x2="0" y1="0" y2="1">
+                  <stop offset="5%" stopColor="#13a36f" stopOpacity={0.22} />
+                  <stop offset="95%" stopColor="#13a36f" stopOpacity={0} />
+                </linearGradient>
+              </defs>
+              <CartesianGrid strokeDasharray="3 3" stroke="#e5e7eb" />
+              <XAxis dataKey="month" />
+              <YAxis />
+              <Tooltip formatter={(value) => eur.format(Number(value))} />
+              <Area dataKey="omzet" stroke="#1877f2" fill="url(#reportRevenue)" strokeWidth={3} />
+              <Area dataKey="winst" stroke="#13a36f" fill="url(#reportProfit)" strokeWidth={3} />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      </section>
+
+      <section className="panel">
+        <PanelHeader title="Rapportbibliotheek" />
+        <div className="report-list">
+          {reportRows.map(([name, value, description, status]) => (
+            <button key={name} onClick={() => name.includes('Btw') ? onNavigate('vat') : name.includes('Openstaande') ? onNavigate('invoices') : undefined}>
+              <span><strong>{name}</strong><small>{description}</small></span>
+              <em>{value}</em>
+              <Status label={status} />
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="panel">
+        <PanelHeader title="AI samenvatting" />
+        <div className="suggestions">
+          {aiInsights.map((insight) => <span key={insight}><Sparkles size={16} /> {insight}</span>)}
+        </div>
+      </section>
+
+      <section className="panel wide">
+        <PanelHeader title="Klantenwaarde" action="Open klanten" onAction={() => onNavigate('customers')} />
+        <DataTable
+          columns={['Klant', 'Omzet', 'Status']}
+          rows={topCustomers.map((customer) => [
+            customer.name,
+            eur.format(customer.revenue),
+            <Status key={customer.id} label={customer.revenue > 3000 ? 'Strategisch' : 'Actief'} />,
+          ])}
+        />
+      </section>
+    </div>
+  )
+}
+
+function VatPage({ metrics, invoices, onNavigate }: { metrics: Record<string, number>; invoices: Invoice[]; onNavigate: (screen: Screen) => void }) {
+  const monthInvoices = invoices.filter((invoice) => invoice.date.slice(0, 7) === todayIso().slice(0, 7))
+  const checks = [
+    ['Facturen gecontroleerd', `${monthInvoices.length} facturen in deze maand`, true],
+    ['Btw berekend', eur.format(metrics.vatDue), metrics.vatDue >= 0],
+    ['Concepten controleren', `${invoices.filter((invoice) => invoice.status === 'Concept').length} concepten`, invoices.every((invoice) => invoice.status !== 'Concept')],
+    ['Vervallen facturen', `${invoices.filter((invoice) => invoice.status === 'Verlopen').length} verlopen`, metrics.overdue === 0],
+  ] as const
+
+  return (
+    <div className="content-grid">
+      <section className="panel wide report-hero">
+        <div>
+          <p className="eyebrow">BTW</p>
+          <h2>Btw voorbereiden zonder zoekwerk</h2>
+          <p>Controleer verkoopfacturen, concepten en open risico's voordat je aangifte doet.</p>
+        </div>
+        <div className="report-score"><span>Te reserveren</span><strong>{eur.format(metrics.vatDue)}</strong><em>huidige maand</em></div>
+      </section>
+      <section className="panel">
+        <PanelHeader title="Controlelijst" />
+        <div className="checklist">
+          {checks.map(([title, text, ok]) => <span key={title} className={ok ? 'ok' : 'attention'}><Check size={16} /><strong>{title}</strong><small>{text}</small></span>)}
+        </div>
+      </section>
+      <section className="panel">
+        <PanelHeader title="AI uitleg" />
+        <p className="muted-copy">Brenqo gebruikt de factuurregels als basis. Zodra boekingen en banktransacties actief zijn, vergelijken we ook betalingen, bonnetjes en voorbelasting.</p>
+        <button className="primary" onClick={() => onNavigate('reports')}>Bekijk rapportages</button>
+      </section>
+    </div>
+  )
+}
+
+function BankPage({ invoices, onNavigate }: { invoices: Invoice[]; onNavigate: (screen: Screen) => void }) {
+  const openInvoices = invoices.filter((invoice) => invoice.status !== 'Betaald')
+  return (
+    <div className="content-grid">
+      <section className="panel wide report-hero">
+        <div>
+          <p className="eyebrow">Bank</p>
+          <h2>Transacties straks automatisch koppelen</h2>
+          <p>De bankmodule is voorbereid rond matches: betaling binnen, factuur gevonden, verschil verklaren en boeken.</p>
+        </div>
+        <div className="report-score"><span>Te matchen</span><strong>{openInvoices.length}</strong><em>open facturen</em></div>
+      </section>
+      <section className="panel wide">
+        <PanelHeader title="Matchvoorstellen" action="Open facturen" onAction={() => onNavigate('invoices')} />
+        <DataTable
+          columns={['Factuur', 'Bedrag', 'Status', 'Voorstel']}
+          rows={openInvoices.map((invoice) => [invoice.number, eur.format(invoice.amount), <Status key={invoice.id} label={invoice.status} />, 'Wacht op bankkoppeling'])}
+        />
+      </section>
+    </div>
+  )
+}
+
+function AccountingPage({ invoices, auditEvents, onNavigate }: { invoices: Invoice[]; auditEvents: AuditEvent[]; onNavigate: (screen: Screen) => void }) {
+  const processed = invoices.filter((invoice) => invoice.status === 'Betaald').length
+  return (
+    <div className="content-grid">
+      <section className="panel wide report-hero">
+        <div>
+          <p className="eyebrow">Boekhouding</p>
+          <h2>Van administratie naar automatische controle</h2>
+          <p>Boekhouding in Brenqo wordt taakgericht: wat is verwerkt, wat mist nog en welke actie lost het op?</p>
+        </div>
+        <div className="report-score"><span>Verwerkt</span><strong>{processed}</strong><em>betaalde facturen</em></div>
+      </section>
+      <SettingsBlock icon={<BookOpen />} title="Verkoopboek" text={`${invoices.length} verkoopfacturen beschikbaar voor rapportages en btw.`} />
+      <SettingsBlock icon={<ShieldCheck />} title="Controlepad" text={`${auditEvents.length} acties in de auditlog voor deze werkruimte.`} />
+      <section className="panel wide">
+        <PanelHeader title="Laatste boekhoudacties" action="Naar rapportages" onAction={() => onNavigate('reports')} />
+        <DataTable columns={['Actie', 'Type', 'Datum']} rows={auditEvents.slice(0, 8).map((event) => [event.action, event.entityType, new Date(event.createdAt).toLocaleString('nl-NL')])} />
+      </section>
+    </div>
+  )
+}
+
+function DocumentsPage({ invoices, quotes, onNavigate }: { invoices: Invoice[]; quotes: Quote[]; onNavigate: (screen: Screen) => void }) {
+  return (
+    <div className="content-grid">
+      <section className="panel wide report-hero">
+        <div>
+          <p className="eyebrow">Documenten</p>
+          <h2>PDF's, offertes en facturen op een plek</h2>
+          <p>Alle verkoopdocumenten zijn straks vindbaar, downloadbaar en verstuurbaar vanuit dezelfde werkruimte.</p>
+        </div>
+        <div className="report-score"><span>Documenten</span><strong>{invoices.length + quotes.length}</strong><em>facturen en offertes</em></div>
+      </section>
+      <SettingsBlock icon={<FileText />} title="Facturen" text={`${invoices.length} facturen met server-side PDF-download en verzenden vanuit Brenqo.`} />
+      <SettingsBlock icon={<FileCheck2 />} title="Offertes" text={`${quotes.length} offertes klaar om naar factuur om te zetten.`} />
+      <section className="panel wide">
+        <PanelHeader title="Volgende stap" action="Nieuwe factuur" onAction={() => onNavigate('invoice-create')} />
+        <p className="muted-copy">Bonnen en inkoopdocumenten komen hier later bij als AI-uploadflow met herkenning van leverancier, btw en boekingsvoorstel.</p>
+      </section>
+    </div>
+  )
+}
+
+function TasksPage({ invoices, quotes, customers, onNavigate }: { invoices: Invoice[]; quotes: Quote[]; customers: Customer[]; onNavigate: (screen: Screen) => void }) {
+  const tasks = [
+    { title: 'Vervallen facturen opvolgen', count: invoices.filter((invoice) => invoice.status === 'Verlopen').length, screen: 'invoices' as Screen },
+    { title: 'Conceptfacturen afronden', count: invoices.filter((invoice) => invoice.status === 'Concept').length, screen: 'invoices' as Screen },
+    { title: 'Open offertes opvolgen', count: quotes.filter((quote) => quote.status === 'Verzonden').length, screen: 'quotes' as Screen },
+    { title: 'Klantgegevens verrijken', count: customers.filter((customer) => !customer.vat || !customer.chamber).length, screen: 'customers' as Screen },
+  ]
+  return (
+    <section className="panel wide">
+      <PanelHeader title="Vandaag" />
+      <div className="task-board">
+        {tasks.map((task) => (
+          <button key={task.title} onClick={() => onNavigate(task.screen)}>
+            <span>{task.title}</span>
+            <strong>{task.count}</strong>
+            <small>{task.count === 0 ? 'Geen actie nodig' : 'Openen'}</small>
+          </button>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function AiAssistantPage({ metrics, invoices, quotes, customers, onNavigate }: { metrics: Record<string, number>; invoices: Invoice[]; quotes: Quote[]; customers: Customer[]; onNavigate: (screen: Screen) => void }) {
+  const prompts = [
+    `Vat mijn omzet samen: ${eur.format(metrics.revenue)} deze maand.`,
+    `Welke facturen moet ik opvolgen? ${invoices.filter((invoice) => invoice.status !== 'Betaald').length} staan open.`,
+    `Welke offertes verdienen aandacht? ${quotes.filter((quote) => quote.status === 'Verzonden').length} zijn verzonden.`,
+    `Welke klanten leveren de meeste waarde? ${customers.length} klanten beschikbaar.`,
+  ]
+  return (
+    <div className="content-grid">
+      <section className="panel wide report-hero">
+        <div>
+          <p className="eyebrow">AI assistent</p>
+          <h2>Geen losse AI-knop, maar hulp in elke workflow</h2>
+          <p>Deze assistent laat zien welke vragen Brenqo straks direct kan beantwoorden vanuit je eigen administratie.</p>
+        </div>
+        <button className="primary" onClick={() => onNavigate('reports')}>Open rapportages</button>
+      </section>
+      <section className="panel wide">
+        <PanelHeader title="Slimme vragen" />
+        <div className="prompt-grid">
+          {prompts.map((prompt) => <button key={prompt}><Sparkles size={16} /> {prompt}</button>)}
+        </div>
       </section>
     </div>
   )
