@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict'
 import { test } from 'node:test'
-import { publicAuthRedirectUrl, submitAuth, updatePassword, validateAuthInput } from '../src/services/authService.ts'
+import { publicAuthRedirectUrl, submitAuth, updatePassword, validateAuthInput, validatePasswordStrength } from '../src/services/authService.ts'
 
 test('auth validation rejects invalid email', () => {
   assert.deepEqual(validateAuthInput('login', 'geen-email', 'wachtwoord'), {
@@ -13,6 +13,18 @@ test('auth validation enforces password length', () => {
   assert.deepEqual(validateAuthInput('register', 'info@brenqo.nl', 'kort', 'Glen', 'Brenqo'), {
     ok: false,
     message: 'Gebruik minimaal 8 tekens voor je wachtwoord.',
+  })
+})
+
+test('auth validation requires a stronger password', () => {
+  assert.deepEqual(validatePasswordStrength('alleenletters'), {
+    ok: false,
+    message: 'Gebruik minimaal een letter en een cijfer in je wachtwoord.',
+  })
+
+  assert.deepEqual(validatePasswordStrength('veilig123', 'anders123'), {
+    ok: false,
+    message: 'De wachtwoorden zijn niet gelijk.',
   })
 })
 
@@ -53,7 +65,7 @@ test('registration without session asks for email confirmation without opening a
     },
   } as never, 'register', {
     email: 'test@brenqo.nl',
-    password: 'veilig-wachtwoord',
+    password: 'veilig-wachtwoord1',
     name: 'Test Gebruiker',
     companyName: 'Testbedrijf',
     redirectTo: 'https://brenqo.nl/',
@@ -76,7 +88,7 @@ test('registration with session opens app after workspace bootstrap', async () =
     },
   } as never, 'register', {
     email: 'test@brenqo.nl',
-    password: 'veilig-wachtwoord',
+    password: 'veilig-wachtwoord1',
     name: 'Test Gebruiker',
     companyName: 'Testbedrijf',
     redirectTo: 'https://brenqo.nl/',
@@ -99,7 +111,7 @@ test('registration with invite accepts invite instead of creating workspace', as
     },
   } as never, 'register', {
     email: 'team@brenqo.nl',
-    password: 'veilig-wachtwoord',
+    password: 'veilig-wachtwoord1',
     name: 'Team Gebruiker',
     companyName: 'Wordt genegeerd',
     redirectTo: 'https://brenqo.nl/',
@@ -122,8 +134,8 @@ test('password update validates length and calls Supabase', async () => {
         return { error: null }
       },
     },
-  } as never, 'nieuw-wachtwoord')
+  } as never, 'nieuw-wachtwoord1')
 
   assert.equal(result.ok, true)
-  assert.deepEqual(calls, ['nieuw-wachtwoord'])
+  assert.deepEqual(calls, ['nieuw-wachtwoord1'])
 })

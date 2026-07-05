@@ -3,6 +3,11 @@ declare(strict_types=1);
 
 function build_document_pdf(array $payload): string
 {
+    $validationError = validate_document_payload($payload);
+    if ($validationError !== null) {
+        throw new InvalidArgumentException($validationError);
+    }
+
     $documentType = clean_text((string)($payload['type'] ?? 'invoice'));
     $label = $documentType === 'quote' ? 'Offerte' : 'Factuur';
     $number = clean_text((string)($payload['number'] ?? $payload['title'] ?? 'Concept'));
@@ -43,13 +48,16 @@ function build_document_pdf(array $payload): string
     $content = "";
     pdf_rect($content, 0, 0, 595, 842, '0.97 0.98 1');
     pdf_rect($content, 36, 36, 523, 770, '1 1 1');
-    pdf_rect($content, 36, 758, 523, 48, '0.04 0.06 0.11');
-    pdf_rect($content, 514, 758, 45, 48, '0.10 0.76 0.88');
-    pdf_text($content, 'BRENQO', 58, 786, 22, true, '1 1 1');
-    pdf_text($content, $label . ' ' . $number, 58, 766, 12, false, '0.85 0.88 0.95');
-    pdf_text($content, $status, 438, 780, 11, true, '1 1 1');
+    pdf_rect($content, 36, 740, 523, 66, '0.04 0.06 0.11');
+    pdf_rect($content, 58, 769, 18, 18, '0.14 0.45 0.95');
+    pdf_rect($content, 79, 769, 18, 18, '0.43 0.38 1');
+    pdf_text($content, 'BRENQO', 112, 782, 18, true, '1 1 1');
+    pdf_text($content, 'Business platform', 112, 762, 10, false, '0.74 0.78 0.86');
+    pdf_text($content, $status, 462, 780, 11, true, '1 1 1');
+    pdf_text($content, $label, 58, 714, 30, true);
+    pdf_text($content, $number, 58, 688, 13, true, '0.38 0.43 0.52');
 
-    pdf_text($content, $company, 58, 720, 18, true);
+    pdf_text($content, $company, 58, 650, 18, true);
     $companyRows = array_filter([
         $companyAddress,
         $companyChamber !== '' ? 'KvK ' . $companyChamber : '',
@@ -57,21 +65,21 @@ function build_document_pdf(array $payload): string
         $companyEmail,
         $companyPhone,
     ]);
-    pdf_multiline($content, implode("\n", $companyRows), 58, 696, 10, 14, 215);
+    pdf_multiline($content, implode("\n", $companyRows), 58, 626, 10, 14, 215);
 
-    pdf_text($content, 'Voor', 338, 720, 11, true, '0.38 0.43 0.52');
-    pdf_text($content, $customer, 338, 700, 17, true);
-    pdf_multiline($content, $customerAddress, 338, 678, 10, 14, 190);
+    pdf_text($content, 'Voor', 338, 650, 11, true, '0.38 0.43 0.52');
+    pdf_text($content, $customer, 338, 630, 17, true);
+    pdf_multiline($content, $customerAddress, 338, 608, 10, 14, 190);
 
-    pdf_rect($content, 58, 592, 480, 74, '0.95 0.97 1');
-    pdf_text($content, 'Document', 78, 637, 10, true, '0.38 0.43 0.52');
-    pdf_text($content, $number, 78, 616, 13, true);
-    pdf_text($content, 'Datum', 230, 637, 10, true, '0.38 0.43 0.52');
-    pdf_text($content, $date, 230, 616, 13, true);
-    pdf_text($content, $documentType === 'quote' ? 'Geldig tot' : 'Vervaldatum', 382, 637, 10, true, '0.38 0.43 0.52');
-    pdf_text($content, $secondaryDate !== '' ? $secondaryDate : '-', 382, 616, 13, true);
+    pdf_rect($content, 58, 526, 480, 74, '0.95 0.97 1');
+    pdf_text($content, 'Document', 78, 571, 10, true, '0.38 0.43 0.52');
+    pdf_text($content, $number, 78, 550, 13, true);
+    pdf_text($content, 'Datum', 230, 571, 10, true, '0.38 0.43 0.52');
+    pdf_text($content, $date, 230, 550, 13, true);
+    pdf_text($content, $documentType === 'quote' ? 'Geldig tot' : 'Vervaldatum', 382, 571, 10, true, '0.38 0.43 0.52');
+    pdf_text($content, $secondaryDate !== '' ? $secondaryDate : '-', 382, 550, 13, true);
 
-    $tableTop = 528;
+    $tableTop = 478;
     pdf_text($content, 'Omschrijving', 58, $tableTop, 10, true, '0.38 0.43 0.52');
     pdf_text($content, 'Aantal', 300, $tableTop, 10, true, '0.38 0.43 0.52');
     pdf_text($content, 'Prijs', 360, $tableTop, 10, true, '0.38 0.43 0.52');
@@ -124,6 +132,41 @@ function build_document_pdf(array $payload): string
     pdf_text($content, 'Gemaakt met Brenqo', 412, 82, 10, true, '0.38 0.43 0.52');
 
     return assemble_pdf($content);
+}
+
+function validate_document_payload(array $payload): ?string
+{
+    $type = (string)($payload['type'] ?? '');
+    if (!in_array($type, ['invoice', 'quote'], true)) {
+        return 'Documenttype ontbreekt of is ongeldig.';
+    }
+
+    foreach (['number' => 'documentnummer', 'companyName' => 'bedrijfsnaam', 'customerName' => 'klantnaam'] as $key => $label) {
+        if (trim((string)($payload[$key] ?? '')) === '') {
+            return 'Vul de ' . $label . ' in.';
+        }
+    }
+
+    $lines = $payload['lines'] ?? null;
+    if (!is_array($lines) || count($lines) === 0) {
+        return 'Voeg minimaal een factuurregel toe.';
+    }
+
+    foreach ($lines as $line) {
+        if (!is_array($line)) {
+            return 'Controleer de documentregels.';
+        }
+
+        $description = trim((string)($line['description'] ?? ''));
+        $quantity = (float)($line['quantity'] ?? 0);
+        $price = (float)($line['price'] ?? -1);
+        $vat = (float)($line['vat'] ?? -1);
+        if ($description === '' || $quantity <= 0 || $price < 0 || !in_array($vat, [0.0, 9.0, 21.0], true)) {
+            return 'Controleer omschrijving, aantal, prijs en btw van alle regels.';
+        }
+    }
+
+    return null;
 }
 
 function document_filename(array $payload): string

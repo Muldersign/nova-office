@@ -27,6 +27,14 @@ if (!is_array($payload)) {
     exit;
 }
 
+$validationError = validate_document_payload($payload);
+if ($validationError !== null) {
+    http_response_code(422);
+    header('Content-Type: application/json');
+    echo json_encode(['error' => $validationError]);
+    exit;
+}
+
 $pdf = build_document_pdf($payload);
 $filename = document_filename($payload);
 

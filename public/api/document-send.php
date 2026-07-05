@@ -33,6 +33,11 @@ if (!$to || !$from || !$replyTo || $subject === '' || $body === '' || count($doc
     json_response(422, ['error' => 'Vul ontvanger, afzender, onderwerp, bericht en document in.']);
 }
 
+$validationError = validate_document_payload($document);
+if ($validationError !== null) {
+    json_response(422, ['error' => $validationError]);
+}
+
 $pdf = build_document_pdf($document);
 $boundary = 'brenqo_' . bin2hex(random_bytes(12));
 $encodedSubject = '=?UTF-8?B?' . base64_encode($subject) . '?=';

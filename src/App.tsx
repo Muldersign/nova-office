@@ -1472,17 +1472,12 @@ function PasswordResetScreen({ onDone }: { onDone: () => void }) {
 
   const submit = async (event: FormEvent<HTMLFormElement>) => {
     event.preventDefault()
-    if (password !== confirmPassword) {
-      setMessage('De wachtwoorden zijn niet gelijk.')
-      return
-    }
-
     setBusy(true)
-    const result = await updatePassword(getSupabaseClient(), password)
+    const result = await updatePassword(getSupabaseClient(), password, confirmPassword)
     setBusy(false)
     setMessage(result.message)
     if (result.ok) {
-      window.history.replaceState({}, '', window.location.pathname)
+      window.history.replaceState({}, '', `${window.location.pathname}`)
       setTimeout(onDone, 900)
     }
   }
@@ -1497,7 +1492,7 @@ function PasswordResetScreen({ onDone }: { onDone: () => void }) {
           <p>Je resetlink is geopend in Brenqo. Stel hieronder je nieuwe wachtwoord in en log daarna opnieuw in.</p>
         </div>
         <form className="auth-form" onSubmit={submit}>
-          <label>Nieuw wachtwoord<input value={password} onChange={(event) => setPassword(event.target.value)} type="password" placeholder="Minimaal 8 tekens" /></label>
+          <label>Nieuw wachtwoord<input value={password} onChange={(event) => setPassword(event.target.value)} type="password" placeholder="Minimaal 8 tekens met cijfer" /></label>
           <label>Herhaal wachtwoord<input value={confirmPassword} onChange={(event) => setConfirmPassword(event.target.value)} type="password" placeholder="Nogmaals je wachtwoord" /></label>
           <button className="dark-button full" disabled={busy} type="submit">{busy ? 'Opslaan...' : 'Wachtwoord opslaan'}</button>
           {message && <p className={message.includes('bijgewerkt') ? 'success-note' : 'form-error'}>{message}</p>}

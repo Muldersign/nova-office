@@ -25,8 +25,9 @@ export function validateAuthInput(mode: AuthMode, email: string, password: strin
     return { ok: true, message: 'Controleer je inbox voor de herstellink.' }
   }
 
-  if (password.length < 8) {
-    return { ok: false, message: 'Gebruik minimaal 8 tekens voor je wachtwoord.' }
+  const passwordValidation = validatePasswordStrength(password)
+  if (!passwordValidation.ok) {
+    return passwordValidation
   }
 
   if (mode === 'register' && (!name?.trim() || !companyName?.trim())) {
@@ -34,6 +35,22 @@ export function validateAuthInput(mode: AuthMode, email: string, password: strin
   }
 
   return { ok: true, message: 'Authenticatiegegevens zijn geldig.' }
+}
+
+export function validatePasswordStrength(password: string, confirmPassword = password): AuthResult {
+  if (password.length < 8) {
+    return { ok: false, message: 'Gebruik minimaal 8 tekens voor je wachtwoord.' }
+  }
+
+  if (!/[a-z]/i.test(password) || !/\d/.test(password)) {
+    return { ok: false, message: 'Gebruik minimaal een letter en een cijfer in je wachtwoord.' }
+  }
+
+  if (password !== confirmPassword) {
+    return { ok: false, message: 'De wachtwoorden zijn niet gelijk.' }
+  }
+
+  return { ok: true, message: 'Wachtwoord is sterk genoeg.' }
 }
 
 export async function submitAuth(
@@ -126,9 +143,10 @@ export async function acceptInviteWorkspace(client: SupabaseClient, inviteToken:
   return { ok: true, message: 'Uitnodiging geaccepteerd.' }
 }
 
-export async function updatePassword(client: SupabaseClient | null, password: string) {
-  if (password.length < 8) {
-    return { ok: false, message: 'Gebruik minimaal 8 tekens voor je nieuwe wachtwoord.' }
+export async function updatePassword(client: SupabaseClient | null, password: string, confirmPassword = password) {
+  const validation = validatePasswordStrength(password, confirmPassword)
+  if (!validation.ok) {
+    return validation
   }
 
   if (!client) {
