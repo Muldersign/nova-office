@@ -1,4 +1,5 @@
 import type { PrintableDocument } from '../foundation/documents.ts'
+import { validateDocumentLines } from '../foundation/business.ts'
 
 export type PdfDownloadPayload = PrintableDocument & {
   title: string
@@ -7,6 +8,15 @@ export type PdfDownloadPayload = PrintableDocument & {
 }
 
 export async function downloadServerPdf(payload: PdfDownloadPayload) {
+  if (!payload.filename.trim() || !payload.title.trim()) {
+    throw new Error('PDF heeft een titel en bestandsnaam nodig.')
+  }
+
+  const lineValidation = validateDocumentLines(payload.lines)
+  if (!lineValidation.ok) {
+    throw new Error(lineValidation.message)
+  }
+
   const response = await fetch('/api/document-pdf.php', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
@@ -14,7 +24,8 @@ export async function downloadServerPdf(payload: PdfDownloadPayload) {
   })
 
   if (!response.ok) {
-    throw new Error('PDF-service is niet bereikbaar.')
+    const result = await response.json().catch(() => ({} as { error?: string }))
+    throw new Error(result.error ?? 'PDF-service is niet bereikbaar.')
   }
 
   const blob = await response.blob()
@@ -27,5 +38,5 @@ export async function downloadServerPdf(payload: PdfDownloadPayload) {
   link.href = url
   link.download = payload.filename
   link.click()
-  window.URL.revokeObjectURL(url)
+  window.setTimeout(() => window.URL.revokeObjectURL(url), 0)
 }

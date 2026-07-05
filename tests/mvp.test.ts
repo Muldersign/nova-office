@@ -4,7 +4,11 @@ import {
   calculateTotals,
   canManage,
   filterByCompany,
+  isValidDutchVatNumber,
+  isValidEmail,
+  isValidIban,
   nextDocumentNumber,
+  validateDocumentLines,
   validateRequiredCustomer,
 } from '../src/foundation/business.ts'
 
@@ -44,4 +48,19 @@ test('applies basic role based access rules', () => {
 test('validates required customer fields', () => {
   assert.equal(validateRequiredCustomer({ name: 'Brenqo BV', email: 'finance@brenqo.nl', city: 'Amsterdam' }), true)
   assert.equal(validateRequiredCustomer({ name: '', email: 'finance-at-brenqo.nl', city: '' }), false)
+})
+
+test('validates production contact and tax fields', () => {
+  assert.equal(isValidEmail('administratie@muldersign.nl'), true)
+  assert.equal(isValidEmail('administratie@muldersign'), false)
+  assert.equal(isValidDutchVatNumber('NL004592528B88'), true)
+  assert.equal(isValidDutchVatNumber('NL123'), false)
+  assert.equal(isValidIban('NL94 RABO 0338 4823 85'), true)
+  assert.equal(isValidIban('RABO123'), false)
+})
+
+test('validates document lines before PDF or sending', () => {
+  assert.equal(validateDocumentLines([{ description: 'Advies', quantity: 1, price: 100, vat: 21 }]).ok, true)
+  assert.equal(validateDocumentLines([]).ok, false)
+  assert.equal(validateDocumentLines([{ description: '', quantity: 0, price: -1, vat: 15 }]).ok, false)
 })

@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { isValidEmail } from '../foundation/business.ts'
 
 export type AuthMode = 'login' | 'register' | 'forgot'
 
@@ -16,7 +17,7 @@ export function publicAuthRedirectUrl(env: Record<string, string | undefined> = 
 }
 
 export function validateAuthInput(mode: AuthMode, email: string, password: string, name?: string, companyName?: string): AuthResult {
-  if (!email.includes('@')) {
+  if (!isValidEmail(email)) {
     return { ok: false, message: 'Vul een geldig e-mailadres in.' }
   }
 

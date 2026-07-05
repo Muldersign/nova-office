@@ -50,3 +50,30 @@ test('send document service posts customer email with PDF payload', async () => 
     globalThis.fetch = originalFetch
   }
 })
+
+test('send document service rejects invalid email before network call', async () => {
+  const originalFetch = globalThis.fetch
+  let called = false
+  globalThis.fetch = async () => {
+    called = true
+    return new Response('{}')
+  }
+
+  try {
+    await assert.rejects(
+      () => sendDocumentEmail({
+        to: 'geen-email',
+        from: 'send@brenqo.nl',
+        replyTo: 'administratie@muldersign.nl',
+        subject: 'Factuur 2026-0143',
+        body: 'Beste klant',
+        filename: 'factuur-2026-0143.pdf',
+        document,
+      }),
+      /Controleer ontvanger/,
+    )
+    assert.equal(called, false)
+  } finally {
+    globalThis.fetch = originalFetch
+  }
+})

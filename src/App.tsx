@@ -34,7 +34,7 @@ import {
   WalletCards,
   X,
 } from 'lucide-react'
-import { calculateTotals, nextDocumentNumber, validateRequiredCustomer } from './foundation/business'
+import { calculateTotals, isValidDutchVatNumber, isValidEmail, isValidIban, nextDocumentNumber, validateDocumentLines, validateRequiredCustomer } from './foundation/business'
 import { foundationRules, foundationSchema, tenantScopedTables } from './foundation/database'
 import { createPrintableDocumentHtml } from './foundation/documents'
 import { isUsageWithinPlan, planByName, planCatalog, usagePercentage, type PlanLimitKey, type PlanName, type PlanUsage } from './foundation/subscription'
@@ -1911,6 +1911,14 @@ function Dashboard({
     openInvoices.length > 0 ? `${openInvoices.length} facturen staan nog open. Verstuur vandaag een korte herinnering.` : 'Geen openstaande facturen. Je cashflow is rustig.',
     expiringQuotes > 0 ? `${expiringQuotes} verzonden offertes vragen opvolging.` : 'Er zijn geen verzonden offertes die nu aandacht vragen.',
   ]
+  const readiness = [
+    { label: 'Bedrijfsgegevens', ready: Boolean(activeCompany.email && activeCompany.iban && activeCompany.vat), action: 'Instellingen', screen: 'settings' as Screen },
+    { label: 'Klantenbestand', ready: dashboardCustomers.length > 0, action: 'Klanten', screen: 'customers' as Screen },
+    { label: 'Factuurproces', ready: dashboardInvoices.length > 0, action: 'Facturen', screen: 'invoices' as Screen },
+    { label: 'Offerteproces', ready: dashboardQuotes.length > 0, action: 'Offertes', screen: 'quotes' as Screen },
+    { label: 'Controlepad', ready: auditEvents.length > 0, action: 'Rapportages', screen: 'reports' as Screen },
+  ]
+  const readinessScore = Math.round((readiness.filter((item) => item.ready).length / readiness.length) * 100)
 
   return (
     <div className="content-grid">
@@ -1965,6 +1973,19 @@ function Dashboard({
       </section>
 
       <section className="panel">
+        <PanelHeader title={`MVP gereedheid ${readinessScore}%`} />
+        <div className="checklist readiness-list">
+          {readiness.map((item) => (
+            <button key={item.label} className={item.ready ? 'ok' : 'attention'} onClick={() => onNavigate(item.screen)}>
+              <Check size={16} />
+              <strong>{item.label}</strong>
+              <small>{item.ready ? 'Klaar' : item.action}</small>
+            </button>
+          ))}
+        </div>
+      </section>
+
+      <section className="panel">
         <PanelHeader title="Snelle acties" />
         <div className="quick-actions">
           <button onClick={() => onNavigate('invoice-create')}><FilePlus2 size={18} /> Factuur maken</button>
@@ -1999,19 +2020,22 @@ function Customers({ customers, onAdd, onSelect }: { customers: Customer[]; onAd
   return (
     <section className="panel">
       <PanelHeader title="Klantenoverzicht" action="Klant toevoegen" onAction={onAdd} />
-      {customers.length === 0 && <EmptyState title="Nog geen klanten" text="Begin met een klant, daarna maak je sneller offertes en facturen." action="Klant toevoegen" onAction={onAdd} />}
-      <DataTable
-        columns={['Bedrijf', 'Contactpersoon', 'E-mail', 'Telefoon', 'Plaats', 'Omzet', '']}
-        rows={customers.map((customer) => [
-          customer.name,
-          customer.contact,
-          customer.email,
-          customer.phone,
-          customer.city,
-          eur.format(customer.revenue),
-          <button key={customer.id} className="table-link" onClick={() => onSelect(customer.id)}>Openen</button>,
-        ])}
-      />
+      {customers.length === 0 ? (
+        <EmptyState title="Nog geen klanten" text="Begin met een klant, daarna maak je sneller offertes en facturen." action="Klant toevoegen" onAction={onAdd} />
+      ) : (
+        <DataTable
+          columns={['Bedrijf', 'Contactpersoon', 'E-mail', 'Telefoon', 'Plaats', 'Omzet', '']}
+          rows={customers.map((customer) => [
+            customer.name,
+            customer.contact,
+            customer.email,
+            customer.phone,
+            customer.city,
+            eur.format(customer.revenue),
+            <button key={customer.id} className="table-link" onClick={() => onSelect(customer.id)}>Openen</button>,
+          ])}
+        />
+      )}
     </section>
   )
 }
@@ -2152,23 +2176,26 @@ function Invoices({
         <span>{rows.length} van {invoices.length} facturen</span>
         <span>Zoeken via de balk bovenin</span>
       </div>
-      {rows.length === 0 && <EmptyState title="Nog geen facturen" text="Maak een nieuwe factuur of open een voorbeeld vanuit je werkruimte." action="Nieuwe factuur" onAction={onCreate} />}
-      <DataTable
-        columns={['Factuur', 'Klant', 'Datum', 'Vervaldatum', 'Bedrag', 'BTW', 'Status', 'Actie']}
-        rows={rows.map((invoice) => [
-          invoice.number,
-          nameFor(invoice.customerId, customers),
-          invoice.date,
-          invoice.due,
-          eur.format(invoice.amount),
-          eur.format(invoice.vat),
-          <Status key={invoice.id} label={invoice.status} />,
-          <div key={invoice.id} className="table-actions">
-            <button className="table-link" onClick={() => onSelect(invoice.id)}>Openen</button>
-            {invoice.status !== 'Betaald' && <button className="table-link" onClick={() => onMarkPaid(invoice.id)}>Betaald</button>}
-          </div>,
-        ])}
-      />
+      {rows.length === 0 ? (
+        <EmptyState title="Nog geen facturen" text="Maak een nieuwe factuur of open een voorbeeld vanuit je werkruimte." action="Nieuwe factuur" onAction={onCreate} />
+      ) : (
+        <DataTable
+          columns={['Factuur', 'Klant', 'Datum', 'Vervaldatum', 'Bedrag', 'BTW', 'Status', 'Actie']}
+          rows={rows.map((invoice) => [
+            invoice.number,
+            nameFor(invoice.customerId, customers),
+            invoice.date,
+            invoice.due,
+            eur.format(invoice.amount),
+            eur.format(invoice.vat),
+            <Status key={invoice.id} label={invoice.status} />,
+            <div key={invoice.id} className="table-actions">
+              <button className="table-link" onClick={() => onSelect(invoice.id)}>Openen</button>
+              {invoice.status !== 'Betaald' && <button className="table-link" onClick={() => onMarkPaid(invoice.id)}>Betaald</button>}
+            </div>,
+          ])}
+        />
+      )}
     </section>
   )
 }
@@ -2222,8 +2249,14 @@ function InvoiceCreate({
   }
   const removeRow = (index: number) => changeRows(editableRows.filter((_, rowIndex) => rowIndex !== index))
   const save = () => {
-    if (!customerId || editableRows.some((row) => !row.description.trim() || row.quantity <= 0 || row.price < 0)) {
-      setError('Kies een klant en vul alle factuurregels correct in.')
+    const rowValidation = validateDocumentLines(editableRows)
+    if (!customerId || !rowValidation.ok) {
+      setError(!customerId ? 'Kies eerst een klant.' : rowValidation.message)
+      return
+    }
+
+    if (dueDate < invoiceDate) {
+      setError('De vervaldatum mag niet voor de factuurdatum liggen.')
       return
     }
 
@@ -2263,7 +2296,7 @@ function InvoiceCreate({
           <label>Factuurnummer<input value={number} readOnly /></label>
           <label>Factuurdatum<input type="date" value={invoiceDate} onChange={(event) => setInvoiceDate(event.target.value)} /></label>
           <label>Vervaldatum<input type="date" value={dueDate} onChange={(event) => setDueDate(event.target.value)} /></label>
-          <label>Betalingstermijn<select value={dueDate} onChange={(event) => setDueDate(addDaysIso(Number(event.target.value)))}><option value={addDaysIso(7)}>7 dagen</option><option value={addDaysIso(14)}>14 dagen</option><option value={addDaysIso(30)}>30 dagen</option></select></label>
+          <label>Betalingstermijn<select value={dueDate} onChange={(event) => setDueDate(event.target.value)}><option value={addDaysIso(7)}>7 dagen</option><option value={addDaysIso(14)}>14 dagen</option><option value={addDaysIso(30)}>30 dagen</option></select></label>
           <label>Status<select value={status} onChange={(event) => setStatus(event.target.value as InvoiceStatus)}><option>Concept</option><option>Verzonden</option><option>Betaald</option><option>Verlopen</option></select></label>
         </div>
         <div className="line-header">
@@ -2465,7 +2498,7 @@ function InvoiceDetail({
         <button className="dark-button full" disabled={sendBusy || !customer?.email} onClick={() => { void sendInvoice() }}>
           {sendBusy ? 'Versturen...' : 'Verstuur factuur'}
         </button>
-        {sendMessage && <p className={sendMessage.includes('verstuurd') ? 'success-note' : 'error'}>{sendMessage}</p>}
+        {sendMessage && <p className={sendMessage.includes('verstuurd') ? 'success-note' : 'form-error'}>{sendMessage}</p>}
         <button className="ghost full" onClick={() => window.print()}>Printen</button>
         <button className="ghost full" onClick={download}><Download size={17} /> Download document</button>
         <button className="ghost full" onClick={() => void navigator.clipboard?.writeText(`${documentEmail.subject}\n\n${documentEmail.body}`)}>Kopieer verzendmail</button>
@@ -2504,18 +2537,21 @@ function Quotes({
         <span>{rows.length} van {quotes.length} offertes</span>
         <span>Zoeken via de balk bovenin</span>
       </div>
-      {rows.length === 0 && <EmptyState title="Nog geen offertes" text="Maak een voorstel dat later met een klik naar factuur kan." action="Nieuwe offerte" onAction={onCreate} />}
-      <DataTable
-        columns={['Offerte', 'Klant', 'Geldig tot', 'Bedrag', 'Status', 'Actie']}
-        rows={rows.map((quote) => [
-          quote.number,
-          nameFor(quote.customerId, customers),
-          quote.validUntil,
-          eur.format(quote.amount),
-          <Status key={quote.id} label={quote.status} />,
-          <button key={quote.id} className="table-link" onClick={() => onSelect(quote.id)}>Openen</button>,
-        ])}
-      />
+      {rows.length === 0 ? (
+        <EmptyState title="Nog geen offertes" text="Maak een voorstel dat later met een klik naar factuur kan." action="Nieuwe offerte" onAction={onCreate} />
+      ) : (
+        <DataTable
+          columns={['Offerte', 'Klant', 'Geldig tot', 'Bedrag', 'Status', 'Actie']}
+          rows={rows.map((quote) => [
+            quote.number,
+            nameFor(quote.customerId, customers),
+            quote.validUntil,
+            eur.format(quote.amount),
+            <Status key={quote.id} label={quote.status} />,
+            <button key={quote.id} className="table-link" onClick={() => onSelect(quote.id)}>Openen</button>,
+          ])}
+        />
+      )}
     </section>
   )
 }
@@ -2553,8 +2589,14 @@ function QuoteCreate({
     }
   }
   const save = () => {
-    if (!customerId || rows.some((row) => !row.description.trim() || row.quantity <= 0 || row.price < 0)) {
-      setError('Kies een klant en vul alle offerteregels correct in.')
+    const rowValidation = validateDocumentLines(rows)
+    if (!customerId || !rowValidation.ok) {
+      setError(!customerId ? 'Kies eerst een klant.' : rowValidation.message)
+      return
+    }
+
+    if (validUntil < todayIso()) {
+      setError('De geldigheidsdatum mag niet in het verleden liggen.')
       return
     }
 
@@ -2822,6 +2864,26 @@ function CompanyForm({
       return
     }
 
+    if (email && !isValidEmail(email)) {
+      setError('Vul een geldig bedrijfs-e-mailadres in.')
+      return
+    }
+
+    if (!/^\d{8}$/.test(chamber.replace(/\s+/g, ''))) {
+      setError('Vul een geldig KvK-nummer van 8 cijfers in.')
+      return
+    }
+
+    if (!isValidDutchVatNumber(vat)) {
+      setError('Vul een geldig Nederlands BTW-nummer in, bijvoorbeeld NL123456789B01.')
+      return
+    }
+
+    if (!isValidIban(iban)) {
+      setError('Vul een geldig IBAN in of laat het veld leeg.')
+      return
+    }
+
     onSave({
       id: company?.id ?? createRecordId('comp'),
       name,
@@ -2891,8 +2953,8 @@ function Products({
   const [error, setError] = useState('')
   const update = (field: keyof Product, value: string | number) => setForm((current) => ({ ...current, [field]: value }))
   const save = () => {
-    if (!form.name.trim() || form.unitPrice < 0) {
-      setError('Vul minimaal een naam en geldige prijs in.')
+    if (!form.name.trim() || !form.description.trim() || form.unitPrice < 0 || ![0, 9, 21].includes(Number(form.vat))) {
+      setError('Vul naam, omschrijving, geldige prijs en btw-percentage in.')
       return
     }
 
@@ -2958,7 +3020,7 @@ function Roles({
   const [error, setError] = useState('')
 
   const invite = () => {
-    if (!name.trim() || !email.includes('@')) {
+    if (!name.trim() || !isValidEmail(email)) {
       setError('Vul een naam en geldig e-mailadres in.')
       return
     }

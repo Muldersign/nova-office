@@ -55,6 +55,33 @@ export function canManage(role: RoleName, resource: 'customers' | 'invoices' | '
   return false
 }
 
+export function isValidEmail(email: string) {
+  return /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/i.test(email.trim())
+}
+
+export function isValidIban(iban: string) {
+  const normalized = iban.replace(/\s+/g, '').toUpperCase()
+  return normalized === '' || /^[A-Z]{2}\d{2}[A-Z0-9]{11,30}$/.test(normalized)
+}
+
+export function isValidDutchVatNumber(vat: string) {
+  const normalized = vat.replace(/\s+/g, '').toUpperCase()
+  return normalized === '' || /^NL\d{9}B\d{2}$/.test(normalized)
+}
+
+export function validateDocumentLines(rows: DocumentLine[]) {
+  if (rows.length === 0) {
+    return { ok: false, message: 'Voeg minimaal een regel toe.' }
+  }
+
+  const invalidRow = rows.find((row) => !row.description.trim() || row.quantity <= 0 || row.price < 0 || ![0, 9, 21].includes(Number(row.vat)))
+  if (invalidRow) {
+    return { ok: false, message: 'Controleer omschrijving, aantal, prijs en btw van alle regels.' }
+  }
+
+  return { ok: true, message: 'Documentregels zijn geldig.' }
+}
+
 export function validateRequiredCustomer(input: { name: string; email: string; city: string }) {
-  return Boolean(input.name.trim() && input.email.includes('@') && input.city.trim())
+  return Boolean(input.name.trim() && isValidEmail(input.email) && input.city.trim())
 }
