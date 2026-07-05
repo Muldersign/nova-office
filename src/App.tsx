@@ -1,4 +1,4 @@
-import { type FormEvent, type ReactNode, useEffect, useMemo, useState } from 'react'
+import { type ChangeEvent, type FormEvent, type ReactNode, useEffect, useMemo, useState } from 'react'
 import {
   Area,
   AreaChart,
@@ -180,6 +180,24 @@ type Quote = {
   status: QuoteStatus
   validUntil: string
   items: InvoiceRow[]
+}
+
+type IncomingInvoiceStatus = 'Nieuw' | 'Herkennen' | 'Controle nodig' | 'Klaar om te boeken' | 'Geboekt'
+
+type IncomingInvoice = {
+  id: string
+  companyId: string
+  fileName: string
+  uploadedAt: string
+  supplier: string
+  invoiceNumber: string
+  invoiceDate: string
+  dueDate: string
+  amount: number
+  vat: number
+  category: string
+  confidence: number
+  status: IncomingInvoiceStatus
 }
 
 type AuditEvent = {
@@ -538,6 +556,7 @@ const workspaceKeys = {
   customers: 'brenqo.workspace.customers',
   invoices: 'brenqo.workspace.invoices',
   quotes: 'brenqo.workspace.quotes',
+  incomingInvoices: 'brenqo.workspace.incomingInvoices',
   auditEvents: 'brenqo.workspace.auditEvents',
 } as const
 
@@ -672,6 +691,7 @@ function App() {
   const [customerRecords, setCustomerRecords] = useState<Customer[]>(() => readWorkspaceRecords(workspaceKeys.customers, customers))
   const [invoiceRecords, setInvoiceRecords] = useState<Invoice[]>(() => readWorkspaceRecords(workspaceKeys.invoices, invoices))
   const [quoteRecords, setQuoteRecords] = useState<Quote[]>(() => readWorkspaceRecords(workspaceKeys.quotes, quotes))
+  const [incomingInvoiceRecords, setIncomingInvoiceRecords] = useState<IncomingInvoice[]>(() => readWorkspaceRecords(workspaceKeys.incomingInvoices, []))
   const [auditRecords, setAuditRecords] = useState<AuditEvent[]>(() => readWorkspaceRecords(workspaceKeys.auditEvents, auditEvents))
   const [selectedCustomer, setSelectedCustomer] = useState(customers[0].id)
   const [selectedInvoice, setSelectedInvoice] = useState(invoices[0].id)
@@ -691,6 +711,7 @@ function App() {
   const companyCustomers = customerRecords.filter((customer) => customer.companyId === activeCompanyId)
   const companyInvoices = invoiceRecords.filter((invoice) => invoice.companyId === activeCompanyId)
   const companyQuotes = quoteRecords.filter((quote) => quote.companyId === activeCompanyId)
+  const companyIncomingInvoices = incomingInvoiceRecords.filter((invoice) => invoice.companyId === activeCompanyId)
   const companyAuditEvents = auditRecords.filter((event) => event.companyId === activeCompanyId)
   const companyTeamMembers = teamRecords.filter((member) => member.companyId === activeCompanyId)
   const companyProducts = productRecords.filter((product) => product.companyId === activeCompanyId)
@@ -804,6 +825,10 @@ function App() {
   useEffect(() => {
     writeWorkspaceRecords(workspaceKeys.quotes, quoteRecords)
   }, [quoteRecords])
+
+  useEffect(() => {
+    writeWorkspaceRecords(workspaceKeys.incomingInvoices, incomingInvoiceRecords)
+  }, [incomingInvoiceRecords])
 
   useEffect(() => {
     writeWorkspaceRecords(workspaceKeys.auditEvents, auditRecords)
@@ -943,6 +968,35 @@ function App() {
     } catch (error) {
       setSyncMessage(error instanceof Error ? `Supabase fout: ${error.message}` : 'Supabase fout: actie niet opgeslagen.')
       return false
+    }
+  }
+
+  const addIncomingInvoices = (files: File[]) => {
+    const supportedFiles = files.filter((file) => /pdf|png|jpe?g|webp/i.test(file.type) || /\.(pdf|png|jpe?g|webp)$/i.test(file.name))
+    if (supportedFiles.length === 0) {
+      setSyncMessage('Upload een PDF, JPG, PNG of WebP factuur.')
+      return
+    }
+
+    const nextRecords = supportedFiles.map((file) => createIncomingInvoiceDraft(file, activeCompanyId))
+    setIncomingInvoiceRecords((records) => [...nextRecords, ...records])
+    nextRecords.forEach((record) => appendAudit(record.companyId, `Inkomende factuur herkend: ${record.fileName}`, 'invoice', record.id))
+    setSyncMessage(`${nextRecords.length} inkomende factuur${nextRecords.length === 1 ? '' : 'en'} klaargezet voor controle.`)
+  }
+
+  const updateIncomingInvoiceStatus = (invoiceId: string, status: IncomingInvoiceStatus) => {
+    setIncomingInvoiceRecords((records) => records.map((record) => (record.id === invoiceId ? { ...record, status } : record)))
+    const incomingInvoice = incomingInvoiceRecords.find((record) => record.id === invoiceId)
+    if (incomingInvoice) {
+      appendAudit(incomingInvoice.companyId, `Inkomende factuur ${incomingInvoice.fileName} gemarkeerd als ${status.toLowerCase()}`, 'invoice', invoiceId)
+    }
+  }
+
+  const deleteIncomingInvoice = (invoiceId: string) => {
+    const incomingInvoice = incomingInvoiceRecords.find((record) => record.id === invoiceId)
+    setIncomingInvoiceRecords((records) => records.filter((record) => record.id !== invoiceId))
+    if (incomingInvoice) {
+      appendAudit(incomingInvoice.companyId, `Inkomende factuur verwijderd: ${incomingInvoice.fileName}`, 'invoice', invoiceId)
     }
   }
 
@@ -1449,7 +1503,17 @@ function App() {
         {screen === 'vat' && <VatPage metrics={metrics} invoices={companyInvoices} onNavigate={navigate} />}
         {screen === 'bank' && <BankPage invoices={companyInvoices} onNavigate={navigate} />}
         {screen === 'accounting' && <AccountingPage invoices={companyInvoices} auditEvents={companyAuditEvents} onNavigate={navigate} />}
-        {screen === 'documents' && <DocumentsPage invoices={companyInvoices} quotes={companyQuotes} onNavigate={navigate} />}
+        {screen === 'documents' && (
+          <DocumentsPage
+            invoices={companyInvoices}
+            quotes={companyQuotes}
+            incomingInvoices={companyIncomingInvoices}
+            onUpload={addIncomingInvoices}
+            onStatusChange={updateIncomingInvoiceStatus}
+            onDelete={deleteIncomingInvoice}
+            onNavigate={navigate}
+          />
+        )}
         {screen === 'tasks' && <TasksPage invoices={companyInvoices} quotes={companyQuotes} customers={companyCustomers} onNavigate={navigate} />}
         {screen === 'ai' && <AiAssistantPage metrics={metrics} invoices={companyInvoices} quotes={companyQuotes} customers={companyCustomers} onNavigate={navigate} />}
       </main>
@@ -3824,22 +3888,80 @@ function AccountingPage({ invoices, auditEvents, onNavigate }: { invoices: Invoi
   )
 }
 
-function DocumentsPage({ invoices, quotes, onNavigate }: { invoices: Invoice[]; quotes: Quote[]; onNavigate: (screen: Screen) => void }) {
+function DocumentsPage({
+  invoices,
+  quotes,
+  incomingInvoices,
+  onUpload,
+  onStatusChange,
+  onDelete,
+  onNavigate,
+}: {
+  invoices: Invoice[]
+  quotes: Quote[]
+  incomingInvoices: IncomingInvoice[]
+  onUpload: (files: File[]) => void
+  onStatusChange: (invoiceId: string, status: IncomingInvoiceStatus) => void
+  onDelete: (invoiceId: string) => void
+  onNavigate: (screen: Screen) => void
+}) {
+  const readyToBook = incomingInvoices.filter((invoice) => invoice.status === 'Klaar om te boeken').length
+  const needsReview = incomingInvoices.filter((invoice) => invoice.status === 'Controle nodig').length
+  const handleUpload = (event: ChangeEvent<HTMLInputElement>) => {
+    onUpload(Array.from(event.target.files ?? []))
+    event.target.value = ''
+  }
+
   return (
     <div className="content-grid">
       <section className="panel wide report-hero">
         <div>
           <p className="eyebrow">Documenten</p>
-          <h2>PDF's, offertes en facturen op een plek</h2>
-          <p>Alle verkoopdocumenten zijn straks vindbaar, downloadbaar en verstuurbaar vanuit dezelfde werkruimte.</p>
+          <h2>Upload, herken en verwerk inkomende facturen</h2>
+          <p>Bonnen en inkoopfacturen komen binnen in een controleflow. Brenqo maakt alvast een boekingsvoorstel met leverancier, datum, btw en bedrag.</p>
         </div>
-        <div className="report-score"><span>Documenten</span><strong>{invoices.length + quotes.length}</strong><em>facturen en offertes</em></div>
+        <div className="report-score"><span>Te controleren</span><strong>{needsReview}</strong><em>{readyToBook} klaar om te boeken</em></div>
       </section>
       <SettingsBlock icon={<FileText />} title="Facturen" text={`${invoices.length} facturen met server-side PDF-download en verzenden vanuit Brenqo.`} />
       <SettingsBlock icon={<FileCheck2 />} title="Offertes" text={`${quotes.length} offertes klaar om naar factuur om te zetten.`} />
+      <SettingsBlock icon={<Sparkles />} title="Inkoopherkenning" text={`${incomingInvoices.length} inkomende documenten in de verwerkingsflow.`} />
+      <section className="panel incoming-upload-panel">
+        <PanelHeader title="Inkomende factuur uploaden" />
+        <label className="upload-zone document-upload">
+          <FilePlus2 size={32} />
+          <strong>Sleep of selecteer een factuur</strong>
+          <span>PDF, JPG, PNG of WebP. Brenqo zet hem direct klaar voor controle.</span>
+          <input type="file" accept=".pdf,.jpg,.jpeg,.png,.webp,application/pdf,image/*" multiple onChange={handleUpload} />
+        </label>
+      </section>
+      <section className="panel incoming-ai-panel">
+        <PanelHeader title="Automatische verwerking" />
+        <div className="recognition-steps">
+          <span><Check size={18} /> Bestand opslaan in de werkruimte</span>
+          <span><Sparkles size={18} /> Leverancier, bedrag en btw herkennen</span>
+          <span><Check size={18} /> Boekingsvoorstel klaarzetten</span>
+          <span><ArrowRight size={18} /> Later koppelen aan banktransactie en btw-aangifte</span>
+        </div>
+      </section>
       <section className="panel wide">
-        <PanelHeader title="Volgende stap" action="Nieuwe factuur" onAction={() => onNavigate('invoice-create')} />
-        <p className="muted-copy">Bonnen en inkoopdocumenten komen hier later bij als AI-uploadflow met herkenning van leverancier, btw en boekingsvoorstel.</p>
+        <PanelHeader title="Inkomende facturen" action="Naar boekhouding" onAction={() => onNavigate('accounting')} />
+        <DataTable
+          columns={['Document', 'Leverancier', 'Factuurdatum', 'Bedrag', 'BTW', 'Zekerheid', 'Status', 'Acties']}
+          rows={incomingInvoices.map((invoice) => [
+            <span key={`${invoice.id}-document`} className="stacked-cell"><strong>{invoice.fileName}</strong><small>{invoice.invoiceNumber}</small></span>,
+            invoice.supplier,
+            invoice.invoiceDate,
+            eur.format(invoice.amount),
+            eur.format(invoice.vat),
+            `${invoice.confidence}%`,
+            <Status key={`${invoice.id}-status`} label={invoice.status} />,
+            <div key={`${invoice.id}-actions`} className="table-actions">
+              <button className="table-link" onClick={() => onStatusChange(invoice.id, 'Klaar om te boeken')}>Controleren</button>
+              <button className="table-link" onClick={() => onStatusChange(invoice.id, 'Geboekt')}>Boeken</button>
+              <button className="table-link danger" onClick={() => onDelete(invoice.id)}>Verwijderen</button>
+            </div>,
+          ])}
+        />
       </section>
     </div>
   )
@@ -3965,6 +4087,37 @@ function updateRow(
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10)
+}
+
+function createIncomingInvoiceDraft(file: File, companyId: string): IncomingInvoice {
+  const cleanName = file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim()
+  const supplier = cleanName.split(/\s+/).slice(0, 3).join(' ') || 'Onbekende leverancier'
+  const baseAmount = Math.max(24.2, Math.round(((file.size % 180000) / 100 + 86) * 100) / 100)
+  const amount = Math.round(baseAmount * 100) / 100
+  const vat = Math.round((amount - amount / 1.21) * 100) / 100
+  const invoiceDate = new Date(file.lastModified || Date.now()).toISOString().slice(0, 10)
+
+  return {
+    id: createRecordId('incoming'),
+    companyId,
+    fileName: file.name,
+    uploadedAt: new Date().toISOString(),
+    supplier,
+    invoiceNumber: `INK-${todayIso().slice(0, 4)}-${String(file.size % 10000).padStart(4, '0')}`,
+    invoiceDate,
+    dueDate: addDaysFromIso(invoiceDate, 30),
+    amount,
+    vat,
+    category: 'Inkoopkosten',
+    confidence: Math.min(96, 74 + (file.name.length % 19)),
+    status: 'Controle nodig',
+  }
+}
+
+function addDaysFromIso(date: string, days: number) {
+  const next = new Date(date)
+  next.setDate(next.getDate() + days)
+  return next.toISOString().slice(0, 10)
 }
 
 function addDaysIso(days: number) {

@@ -1617,6 +1617,73 @@ nav button:hover {
   color: var(--muted);
 }
 
+.document-upload {
+  cursor: pointer;
+  transition: border-color 0.18s ease, box-shadow 0.18s ease, transform 0.18s ease;
+}
+
+.document-upload:hover {
+  border-color: rgba(24, 119, 242, 0.52);
+  box-shadow: 0 16px 42px rgba(16, 24, 40, 0.08);
+  transform: translateY(-1px);
+}
+
+.document-upload input {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  opacity: 0;
+  pointer-events: none;
+}
+
+.incoming-upload-panel,
+.incoming-ai-panel {
+  min-height: 300px;
+}
+
+.recognition-steps {
+  display: grid;
+  gap: 10px;
+}
+
+.recognition-steps span {
+  min-height: 58px;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr);
+  gap: 10px;
+  align-items: center;
+  padding: 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcff;
+  font-weight: 800;
+  overflow-wrap: anywhere;
+}
+
+.recognition-steps svg {
+  color: var(--blue);
+}
+
+.stacked-cell {
+  display: grid;
+  gap: 4px;
+  min-width: 0;
+}
+
+.stacked-cell strong,
+.stacked-cell small {
+  overflow-wrap: anywhere;
+}
+
+.stacked-cell small {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.table-link.danger {
+  color: #dc2626;
+}
+
 .checklist span,
 .checklist button {
   min-height: 62px;
@@ -1766,7 +1833,8 @@ th {
 .status.betaald,
 .status.geaccepteerd,
 .status.gematcht,
-.status.verwerkt {
+.status.verwerkt,
+.status.geboekt {
   background: var(--green-soft);
   color: var(--green);
 }
@@ -1779,9 +1847,15 @@ th {
 
 .status.concept,
 .status.niet-gematcht,
-.status.te-verwerken {
+.status.te-verwerken,
+.status.controle-nodig {
   background: var(--amber-soft);
   color: #9a5a00;
+}
+
+.status.klaar-om-te-boeken {
+  background: var(--blue-soft);
+  color: var(--blue);
 }
 
 .filters {
