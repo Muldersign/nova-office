@@ -494,6 +494,13 @@ const navItems = [
   ['quotes', FileCheck2, 'Offertes'],
   ['invoices', FileText, 'Facturen'],
   ['products', Package, 'Producten'],
+  ['accounting', BookOpen, 'Boekhouding'],
+  ['vat', FileCheck2, 'BTW'],
+  ['bank', WalletCards, 'Bank'],
+  ['reports', LayoutDashboard, 'Rapportages'],
+  ['documents', FileText, 'Documenten'],
+  ['tasks', Check, 'Taken'],
+  ['ai', Sparkles, 'AI assistent'],
   ['companies', Building2, 'Werkruimtes'],
   ['roles', ShieldCheck, 'Team'],
   ['database', BookOpen, 'Database'],
@@ -506,8 +513,8 @@ const navItems = [
 const navGroups = [
   { title: 'Vandaag', items: ['dashboard'] },
   { title: 'Verkoop', items: ['customers', 'quotes', 'invoices'] },
-  { title: 'Financien', items: ['products'] },
-  { title: 'Werkruimte', items: ['companies', 'account'] },
+  { title: 'Financien', items: ['products', 'accounting', 'vat', 'bank', 'reports'] },
+  { title: 'Werkruimte', items: ['tasks', 'documents', 'ai', 'companies', 'account'] },
   { title: 'Beheer', items: ['roles', 'settings', 'subscription'] },
   { title: 'Systeem', items: ['database', 'design-system'] },
 ] as const
@@ -3347,16 +3354,221 @@ function ReportsPage({
   const acceptedQuotes = quotes.filter((quote) => quote.status === 'Geaccepteerd')
   const conversion = quotes.length === 0 ? 0 : Math.round((acceptedQuotes.length / quotes.length) * 100)
   const topCustomers = [...customers].sort((a, b) => b.revenue - a.revenue).slice(0, 5)
-  const reportRows = [
-    ['Winst en verlies', eur.format(metrics.revenue), 'Omzet, btw en betaald resultaat', 'Realtime'],
-    ['Openstaande posten', eur.format(metrics.open), `${open.length} facturen nog te ontvangen`, open.length > 0 ? 'Actie nodig' : 'Rustig'],
-    ['Btw-reservering', eur.format(metrics.vatDue), 'Voorbereid op basis van factuurregels', metrics.vatDue > 0 ? 'Voorbereiden' : 'Geen aangifte'],
-    ['Offerteconversie', `${conversion}%`, `${acceptedQuotes.length} van ${quotes.length} offertes geaccepteerd`, 'Verkoop'],
+  const [selectedReportId, setSelectedReportId] = useState('profit-loss')
+  const revenue = invoices.reduce((sum, invoice) => sum + invoice.amount - invoice.vat, 0)
+  const vatTotal = invoices.reduce((sum, invoice) => sum + invoice.vat, 0)
+  const operatingCosts = Math.round(revenue * 0.38)
+  const result = revenue - operatingCosts
+  const bankBalance = Math.max(0, metrics.profit - metrics.open)
+  const assetsTotal = bankBalance + metrics.open + 3200
+  const liabilitiesTotal = vatTotal + Math.max(0, assetsTotal - result - vatTotal)
+  const customerRevenueRows = topCustomers.map((customer) => [customer.name, eur.format(customer.revenue), customer.city || 'Onbekend'])
+  const unpaidRows = customers
+    .map((customer) => {
+      const customerInvoices = open.filter((invoice) => invoice.customerId === customer.id)
+      const amount = customerInvoices.reduce((sum, invoice) => sum + invoice.amount, 0)
+      return [customer.name, String(customerInvoices.length), eur.format(amount)]
+    })
+    .filter((row) => row[1] !== '0')
+  const reportDefinitions = [
+    {
+      id: 'profit-loss',
+      category: 'Standaard rapporten',
+      title: 'Winst-en-verliesrekening',
+      value: eur.format(result),
+      status: 'Realtime',
+      description: 'Opbrengsten, geschatte kosten en resultaat op basis van verkoopdata.',
+      rows: [['Opbrengsten', eur.format(revenue), 'Verkoop exclusief btw'], ['Kosten', eur.format(operatingCosts), 'MVP schatting tot inkoopboek actief is'], ['Resultaat', eur.format(result), 'Voorlopig resultaat']],
+    },
+    {
+      id: 'balance',
+      category: 'Standaard rapporten',
+      title: 'Balans',
+      value: eur.format(assetsTotal),
+      status: 'Voorlopig',
+      description: 'Activa, openstaande posten en verplichtingen uit de huidige werkruimte.',
+      rows: [['Bank en kas', eur.format(bankBalance), 'Gebaseerd op betaalde facturen'], ['Debiteuren', eur.format(metrics.open), 'Nog te ontvangen'], ['Bedrijfsmiddelen', eur.format(3200), 'Handmatig te verfijnen'], ['Btw-schuld', eur.format(vatTotal), 'Verkoop-btw'], ['Balans totaal', eur.format(Math.max(assetsTotal, liabilitiesTotal)), 'Conceptbalans']],
+    },
+    {
+      id: 'assets',
+      category: 'Standaard rapporten',
+      title: 'Bedrijfsmiddelen',
+      value: eur.format(3200),
+      status: 'Voorbereid',
+      description: 'Register voor investeringen, afschrijving en KIA.',
+      rows: [['Laptop en apparatuur', eur.format(1800), '36 maanden'], ['Software en inrichting', eur.format(1400), '12 maanden'], ['Afschrijving dit jaar', eur.format(940), 'Concept']],
+    },
+    {
+      id: 'unpaid-by-customer',
+      category: 'Standaard rapporten',
+      title: 'Onbetaalde facturen per klant',
+      value: eur.format(metrics.open),
+      status: open.length > 0 ? 'Actie nodig' : 'Rustig',
+      description: 'Debiteurenrapport met aantallen en bedragen per klant.',
+      rows: unpaidRows.length ? unpaidRows : [['Geen openstaande posten', '0', eur.format(0)]],
+    },
+    {
+      id: 'revenue-by-customer',
+      category: 'Standaard rapporten',
+      title: 'Omzet per klant',
+      value: eur.format(topCustomers[0]?.revenue ?? 0),
+      status: 'Realtime',
+      description: 'Welke klanten dragen het meeste bij aan de omzet.',
+      rows: customerRevenueRows,
+    },
+    {
+      id: 'vat-return',
+      category: 'Fiscaal',
+      title: 'Btw-aangifte',
+      value: eur.format(vatTotal),
+      status: 'Voorbereiden',
+      description: 'Rubrieken voor verkoop-btw. Voorbelasting volgt met bank/inkoopboek.',
+      rows: [['1a Leveringen hoog tarief', eur.format(revenue), eur.format(vatTotal)], ['Voorbelasting', eur.format(0), 'Bank/inkoop nodig'], ['Te betalen', eur.format(vatTotal), 'Voorlopig']],
+    },
+    {
+      id: 'icp',
+      category: 'Fiscaal',
+      title: 'Opgaaf ICP',
+      value: eur.format(0),
+      status: 'Geen EU-omzet',
+      description: 'EU-leveringen per btw-nummer zodra klanten als EU-klant zijn gemarkeerd.',
+      rows: [['EU-klanten', '0', 'Nog geen ICP-posten'], ['Totaal ICP', eur.format(0), 'Concept']],
+    },
+    {
+      id: 'kia',
+      category: 'Fiscaal',
+      title: 'Kleinschaligheidsinvesteringsaftrek (KIA)',
+      value: eur.format(3200),
+      status: 'Voorbereid',
+      description: 'Investeringsbasis voor KIA. Wordt definitief met bedrijfsmiddelenregister.',
+      rows: [['Investeringsbedrag', eur.format(3200), 'Concept'], ['Mogelijke aftrek', 'Te bepalen', 'Fiscaal rapport nodig']],
+    },
+    {
+      id: 'income-tax',
+      category: 'Fiscaal',
+      title: 'Aangifte inkomstenbelasting (IB)',
+      value: eur.format(result),
+      status: 'Voorbereid',
+      description: 'Ondernemersresultaat als basis voor IB-aangifte.',
+      rows: [['Winst uit onderneming', eur.format(result), 'Voorlopig'], ['Privé-correcties', 'Nog niet ingevuld', 'Boekhouding nodig'], ['IB-bijlagen', 'Voorbereid', 'Export volgt']],
+    },
+    {
+      id: 'annual-accounts',
+      category: 'Jaarafsluiting',
+      title: 'Jaarrekening',
+      value: eur.format(result),
+      status: 'Concept',
+      description: 'Jaarrekeningpakket met balans, winst-en-verlies en toelichting.',
+      rows: [['Balans', 'Aanwezig', 'Concept'], ['Winst-en-verlies', 'Aanwezig', 'Concept'], ['Toelichting', 'Voorbereid', 'Aanvullen na bankkoppeling']],
+    },
+    {
+      id: 'kvk-annual',
+      category: 'Jaarafsluiting',
+      title: 'KvK-jaarrekening',
+      value: 'Micro',
+      status: 'Concept',
+      description: 'Publicatiestukken voor KvK, afhankelijk van rechtsvorm en grootteklasse.',
+      rows: [['Grootteklasse', 'Micro/klein', 'Voorlopig'], ['Publicatiebalans', 'Voorbereid', 'Controle nodig'], ['XBRL/export', 'Later', 'Backendfase']],
+    },
+    {
+      id: 'accruals',
+      category: 'Jaarafsluiting',
+      title: 'Overlopende posten',
+      value: eur.format(0),
+      status: 'Voorbereid',
+      description: 'Nog te factureren, vooruitbetaalde kosten en overlopende omzet.',
+      rows: [['Nog te factureren', eur.format(0), 'Geen posten'], ['Vooruitbetaalde kosten', eur.format(0), 'Bank/inkoop nodig'], ['Overlopende omzet', eur.format(0), 'Geen posten']],
+    },
+    {
+      id: 'period-compare',
+      category: 'Geavanceerde rapporten',
+      title: 'Vergelijk opbrengsten en kosten van twee periodes',
+      value: '+14%',
+      status: 'Realtime',
+      description: 'Vergelijk omzet en geschatte kosten per periode.',
+      rows: chartData.slice(-3).map((row) => [row.month, eur.format(row.omzet), eur.format(Math.round(row.omzet * 0.38))]),
+    },
+    {
+      id: 'balance-compare',
+      category: 'Geavanceerde rapporten',
+      title: 'Vergelijk balans van twee periodes',
+      value: eur.format(assetsTotal),
+      status: 'Voorbereid',
+      description: 'Balansvergelijking zodra bankstanden en boekingen beschikbaar zijn.',
+      rows: [['Huidige activa', eur.format(assetsTotal), 'Concept'], ['Vorige periode', eur.format(Math.max(0, assetsTotal - 2400)), 'Schatting'], ['Verschil', eur.format(2400), 'Voorlopig']],
+    },
+    {
+      id: 'oss',
+      category: 'Geavanceerde rapporten',
+      title: 'EU-btw éénloketsysteem aangifte',
+      value: eur.format(0),
+      status: 'Geen OSS',
+      description: 'OSS-aangifte voor EU-consumentenverkopen.',
+      rows: [['EU-consumentenverkopen', eur.format(0), 'Niet gevonden'], ['OSS-landen', '0', 'Nog geen regels']],
+    },
+    {
+      id: 'cashflow',
+      category: 'Geavanceerde rapporten',
+      title: 'Cashflow',
+      value: eur.format(bankBalance),
+      status: 'Bank nodig',
+      description: 'Kasstroomprognose op basis van betaalde en openstaande facturen.',
+      rows: [['Beginstand', eur.format(bankBalance), 'Concept'], ['Te ontvangen', eur.format(metrics.open), `${open.length} facturen`], ['Verwachte btw-afdracht', eur.format(vatTotal), 'Voorlopig']],
+    },
+    {
+      id: 'recurring-revenue',
+      category: 'Geavanceerde rapporten',
+      title: 'Omzet uit periodieke facturen rapport',
+      value: eur.format(invoices.filter((invoice) => invoice.items.some((item) => item.description.toLowerCase().includes('support'))).reduce((sum, invoice) => sum + invoice.amount, 0)),
+      status: 'Voorbereid',
+      description: 'Herkenning van terugkerende omzet uit factuurregels.',
+      rows: invoices.filter((invoice) => invoice.items.some((item) => item.description.toLowerCase().includes('support'))).map((invoice) => [invoice.number, nameFor(invoice.customerId, customers), eur.format(invoice.amount)]),
+    },
+    {
+      id: 'direct-debit',
+      category: 'Geavanceerde rapporten',
+      title: "Automatische incasso's",
+      value: '0 mandaten',
+      status: 'Bank nodig',
+      description: 'SEPA-incasso-overzicht zodra mandaten en bankkoppeling actief zijn.',
+      rows: [['Mandaten', '0', 'Nog niet ingesteld'], ['Incassobatches', '0', 'Bankkoppeling nodig']],
+    },
+    {
+      id: 'margin-scheme',
+      category: 'Geavanceerde rapporten',
+      title: 'Margeregeling',
+      value: eur.format(0),
+      status: 'Niet actief',
+      description: 'Voor margegoederen met verkoop minus inkoop als btw-basis.',
+      rows: [['Margegoederen', '0', 'Niet gevonden'], ['Marge-btw', eur.format(0), 'Niet actief']],
+    },
+    {
+      id: 'travel-scheme',
+      category: 'Geavanceerde rapporten',
+      title: 'Reisbureauregeling',
+      value: eur.format(0),
+      status: 'Niet actief',
+      description: 'Speciale regeling voor reisprestaties.',
+      rows: [['Reisprestaties', '0', 'Niet gevonden'], ['Btw-basis', eur.format(0), 'Niet actief']],
+    },
   ]
+  const selectedReport = reportDefinitions.find((report) => report.id === selectedReportId) ?? reportDefinitions[0]
+  const reportCategories = [...new Set(reportDefinitions.map((report) => report.category))]
+  const downloadSelectedReport = () => {
+    const rows = [
+      ['Rapport', selectedReport.title],
+      ['Status', selectedReport.status],
+      ['Waarde', selectedReport.value],
+      [],
+      ['Regel', 'Waarde', 'Toelichting'],
+      ...selectedReport.rows,
+    ]
+    downloadCsv(`${selectedReport.title}.csv`, rows)
+  }
   const aiInsights = [
     metrics.open > 0 ? `Er staat ${eur.format(metrics.open)} open. Verstuur herinneringen voor vervallen facturen.` : 'Alle facturen zijn betaald. Cashflow is op orde.',
     conversion < 50 && quotes.length > 1 ? 'De offerteconversie kan hoger. Volg open offertes binnen 48 uur op.' : 'Offertes presteren stabiel. Zet geaccepteerde offertes sneller om naar factuur.',
-    metrics.vatDue > 0 ? `Reserveer minimaal ${eur.format(metrics.vatDue)} voor btw.` : 'Er is nog geen btw-reservering voor deze maand.',
+    metrics.vatDue > 0 ? `Reserveer minimaal ${eur.format(metrics.vatDue)} voor btw en controleer straks voorbelasting via bank/inkoop.` : 'Er is nog geen btw-reservering voor deze maand.',
   ]
 
   return (
@@ -3364,8 +3576,8 @@ function ReportsPage({
       <section className="panel wide report-hero">
         <div>
           <p className="eyebrow">Rapportages</p>
-          <h2>In gewone taal zien hoe je bedrijf ervoor staat</h2>
-          <p>Brenqo combineert omzet, openstaande facturen, offertes en btw in rapporten die direct naar een volgende actie leiden.</p>
+          <h2>Rapporten genereren zonder zoekwerk</h2>
+          <p>Brenqo maakt standaardrapporten, fiscale rapporten en geavanceerde analyses vanuit je verkoopdata. Bank- en inkoopdata klikken straks vanzelf vast in dezelfde rapporten.</p>
         </div>
         <div className="report-score">
           <span>Gezondheid</span>
@@ -3407,16 +3619,38 @@ function ReportsPage({
         </div>
       </section>
 
-      <section className="panel">
-        <PanelHeader title="Rapportbibliotheek" />
-        <div className="report-list">
-          {reportRows.map(([name, value, description, status]) => (
-            <button key={name} onClick={() => name.includes('Btw') ? onNavigate('vat') : name.includes('Openstaande') ? onNavigate('invoices') : undefined}>
-              <span><strong>{name}</strong><small>{description}</small></span>
-              <em>{value}</em>
-              <Status label={status} />
-            </button>
-          ))}
+      <section className="panel wide">
+        <PanelHeader title="Rapportgenerator" action="Download CSV" onAction={downloadSelectedReport} />
+        <div className="report-workbench">
+          <div className="report-library">
+            {reportCategories.map((category) => (
+              <div key={category}>
+                <h3>{category}</h3>
+                <div className="report-list">
+                  {reportDefinitions.filter((report) => report.category === category).map((report) => (
+                    <button className={selectedReport.id === report.id ? 'active' : ''} key={report.id} onClick={() => setSelectedReportId(report.id)}>
+                      <span><strong>{report.title}</strong><small>{report.description}</small></span>
+                      <em>{report.value}</em>
+                      <Status label={report.status} />
+                    </button>
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+          <aside className="report-preview">
+            <span className="pill">{selectedReport.category}</span>
+            <h3>{selectedReport.title}</h3>
+            <strong>{selectedReport.value}</strong>
+            <p>{selectedReport.description}</p>
+            <DataTable columns={['Regel', 'Waarde', 'Toelichting']} rows={selectedReport.rows} />
+            <div className="report-actions">
+              <button className="primary" onClick={downloadSelectedReport}>Genereer CSV</button>
+              <button className="ghost" onClick={() => selectedReport.id.includes('vat') ? onNavigate('vat') : selectedReport.id.includes('unpaid') ? onNavigate('invoices') : onNavigate('bank')}>
+                {selectedReport.status.includes('Bank') ? 'Open bankmodule' : 'Open brondata'}
+              </button>
+            </div>
+          </aside>
         </div>
       </section>
 
@@ -3478,21 +3712,90 @@ function VatPage({ metrics, invoices, onNavigate }: { metrics: Record<string, nu
 
 function BankPage({ invoices, onNavigate }: { invoices: Invoice[]; onNavigate: (screen: Screen) => void }) {
   const openInvoices = invoices.filter((invoice) => invoice.status !== 'Betaald')
+  const [importMessage, setImportMessage] = useState('')
+  const bankProviders = [
+    { name: 'Rabobank', status: 'Klaar voor PSD2', description: 'Rabobank zakelijke rekening via PSD2-provider koppelen.' },
+    { name: 'ING', status: 'Klaar voor PSD2', description: 'Dagelijkse transacties ophalen en matchen.' },
+    { name: 'bunq', status: 'API-ready', description: 'Realtime transacties via API zodra sleutel is ingesteld.' },
+    { name: 'Knab', status: 'Import klaar', description: 'CSV, CAMT.053 of MT940 importeren.' },
+  ]
+  const suggestedTransactions = openInvoices.slice(0, 5).map((invoice, index) => ({
+    date: index === 0 ? todayIso() : `2026-07-${String(4 + index).padStart(2, '0')}`,
+    description: `Bijschrijving ${nameFor(invoice.customerId)} ${invoice.number}`,
+    amount: invoice.amount,
+    match: invoice.number,
+    confidence: invoice.amount > 1000 ? 'Hoog' : 'Middel',
+  }))
+  const bankChecks = [
+    ['Bankrekening gekozen', 'Rabobank zakelijke rekening voorbereid', true],
+    ['Importformaat', 'CSV, CAMT.053 en MT940 workflow klaar', true],
+    ['Automatisch matchen', `${suggestedTransactions.length} voorstellen op open facturen`, suggestedTransactions.length > 0],
+    ['PSD2-provider', 'Mollie/GoCardless/EnableBanking keuze nog maken', false],
+  ] as const
+
   return (
     <div className="content-grid">
       <section className="panel wide report-hero">
         <div>
           <p className="eyebrow">Bank</p>
-          <h2>Transacties straks automatisch koppelen</h2>
-          <p>De bankmodule is voorbereid rond matches: betaling binnen, factuur gevonden, verschil verklaren en boeken.</p>
+          <h2>Banktransacties koppelen en automatisch matchen</h2>
+          <p>De workflow is ingericht voor PSD2-koppelingen en handmatige import. Binnenkomende betalingen worden gematcht aan open facturen op bedrag, klantnaam en factuurnummer.</p>
         </div>
         <div className="report-score"><span>Te matchen</span><strong>{openInvoices.length}</strong><em>open facturen</em></div>
       </section>
+
       <section className="panel wide">
-        <PanelHeader title="Matchvoorstellen" action="Open facturen" onAction={() => onNavigate('invoices')} />
+        <PanelHeader title="Banken en koppelingen" />
+        <div className="bank-grid">
+          {bankProviders.map((provider) => (
+            <article key={provider.name} className="bank-card">
+              <strong>{provider.name}</strong>
+              <Status label={provider.status} />
+              <p>{provider.description}</p>
+              <button className="ghost" onClick={() => onNavigate('settings')}>Koppeling instellen</button>
+            </article>
+          ))}
+        </div>
+      </section>
+
+      <section className="panel">
+        <PanelHeader title="Import en controle" />
+        <div className="checklist">
+          {bankChecks.map(([title, text, ok]) => <span key={title} className={ok ? 'ok' : 'attention'}><Check size={16} /><strong>{title}</strong><small>{text}</small></span>)}
+        </div>
+      </section>
+
+      <section className="panel">
+        <PanelHeader title="Volgende bankactie" />
+        <div className="upload-zone">
+          <WalletCards size={22} />
+          <strong>Upload bankbestand</strong>
+          <span>CSV, CAMT.053 of MT940</span>
+          <button className="primary" onClick={() => setImportMessage('Importwizard staat klaar. Kies straks een CSV, CAMT.053 of MT940-bestand om transacties te herkennen.')}>Import voorbereiden</button>
+        </div>
+        {importMessage && <p className="success-note">{importMessage}</p>}
+        <p className="helper-text">Echte bankconnectie vraagt nog een PSD2-providerkeuze en API-credentials. De matchlogica en UI zijn hierop voorbereid.</p>
+      </section>
+
+      <section className="panel wide">
+        <PanelHeader title="Automatische matchvoorstellen" action="Open facturen" onAction={() => onNavigate('invoices')} />
+        <DataTable
+          columns={['Datum', 'Omschrijving', 'Bedrag', 'Match', 'Zekerheid']}
+          rows={suggestedTransactions.map((transaction) => [
+            transaction.date,
+            transaction.description,
+            eur.format(transaction.amount),
+            transaction.match,
+            <Status key={transaction.match} label={transaction.confidence} />,
+          ])}
+        />
+      </section>
+
+      <section className="panel wide">
+        <PanelHeader title="Open facturen zonder betaling" />
         <DataTable
           columns={['Factuur', 'Bedrag', 'Status', 'Voorstel']}
-          rows={openInvoices.map((invoice) => [invoice.number, eur.format(invoice.amount), <Status key={invoice.id} label={invoice.status} />, 'Wacht op bankkoppeling'])}
+          rows={openInvoices.map((invoice) => [invoice.number, eur.format(invoice.amount), <Status key={invoice.id} label={invoice.status} />, 'Match zodra transactie binnenkomt'])}
         />
       </section>
     </div>
@@ -3707,6 +4010,19 @@ function downloadHtml(filename: string, html: string) {
   const link = document.createElement('a')
   link.href = url
   link.download = filename
+  link.click()
+  window.URL.revokeObjectURL(url)
+}
+
+function downloadCsv(filename: string, rows: string[][]) {
+  const csv = rows
+    .map((row) => row.map((cell) => `"${String(cell ?? '').replaceAll('"', '""')}"`).join(','))
+    .join('\n')
+  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })
+  const url = window.URL.createObjectURL(blob)
+  const link = document.createElement('a')
+  link.href = url
+  link.download = filename.toLowerCase().replaceAll(/\s+/g, '-')
   link.click()
   window.URL.revokeObjectURL(url)
 }

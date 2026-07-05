@@ -1523,6 +1523,100 @@ nav button:hover {
   font-weight: 900;
 }
 
+.report-list button.active {
+  border-color: rgba(24, 119, 242, 0.42);
+  background: var(--blue-soft);
+}
+
+.report-workbench {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(320px, 0.78fr);
+  gap: 16px;
+  align-items: start;
+}
+
+.report-library {
+  display: grid;
+  gap: 18px;
+}
+
+.report-library h3 {
+  margin: 0 0 10px;
+  font-size: 16px;
+}
+
+.report-preview {
+  position: sticky;
+  top: 18px;
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+  box-shadow: var(--shadow);
+}
+
+.report-preview h3 {
+  margin: 0;
+  font-size: 24px;
+}
+
+.report-preview > strong {
+  font-size: 30px;
+}
+
+.report-preview p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.55;
+}
+
+.report-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+
+.bank-grid {
+  display: grid;
+  grid-template-columns: repeat(4, minmax(0, 1fr));
+  gap: 12px;
+}
+
+.bank-card {
+  min-height: 170px;
+  display: grid;
+  gap: 10px;
+  align-content: start;
+  padding: 14px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fff;
+}
+
+.bank-card p {
+  margin: 0;
+  color: var(--muted);
+  line-height: 1.45;
+}
+
+.upload-zone {
+  min-height: 180px;
+  display: grid;
+  place-items: center;
+  gap: 8px;
+  padding: 18px;
+  border: 1px dashed #cbd5e1;
+  border-radius: 8px;
+  background: #fafbff;
+  text-align: center;
+}
+
+.upload-zone span {
+  color: var(--muted);
+}
+
 .checklist span,
 .checklist button {
   min-height: 62px;
@@ -2670,6 +2764,23 @@ th {
   .report-list button {
     grid-template-columns: 1fr;
     align-items: stretch;
+  }
+
+  .report-workbench,
+  .bank-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .report-preview {
+    position: static;
+  }
+
+  .report-preview > strong {
+    font-size: 26px;
+  }
+
+  .report-actions {
+    display: grid;
   }
 
   .report-score strong,
