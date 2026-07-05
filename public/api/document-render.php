@@ -76,15 +76,15 @@ function build_document_pdf(array $payload): string
     pdf_text($content, $customer, 338, 604, 16, true);
     pdf_multiline($content, $customerAddress, 338, 582, 9, 12, 185, '0.28 0.33 0.42');
 
-    pdf_rect($content, 58, 486, 480, 58, '0.97 0.98 1');
-    pdf_text($content, 'Document', 78, 520, 9, true, '0.39 0.45 0.56');
-    pdf_text($content, $number, 78, 501, 12, true);
-    pdf_text($content, 'Datum', 230, 520, 9, true, '0.39 0.45 0.56');
-    pdf_text($content, $date, 230, 501, 12, true);
-    pdf_text($content, $documentType === 'quote' ? 'Geldig tot' : 'Vervaldatum', 382, 520, 9, true, '0.39 0.45 0.56');
-    pdf_text($content, $secondaryDate !== '' ? $secondaryDate : '-', 382, 501, 12, true);
+    pdf_rect($content, 58, 442, 480, 58, '0.97 0.98 1');
+    pdf_text($content, 'Document', 78, 476, 9, true, '0.39 0.45 0.56');
+    pdf_text($content, $number, 78, 457, 12, true);
+    pdf_text($content, 'Datum', 230, 476, 9, true, '0.39 0.45 0.56');
+    pdf_text($content, $date, 230, 457, 12, true);
+    pdf_text($content, $documentType === 'quote' ? 'Geldig tot' : 'Vervaldatum', 382, 476, 9, true, '0.39 0.45 0.56');
+    pdf_text($content, $secondaryDate !== '' ? $secondaryDate : '-', 382, 457, 12, true);
 
-    $tableTop = 432;
+    $tableTop = 386;
     pdf_text($content, 'Omschrijving', 58, $tableTop, 9, true, '0.39 0.45 0.56');
     pdf_text_right($content, 'Aantal', 334, $tableTop, 9, true, '0.39 0.45 0.56');
     pdf_text_right($content, 'Prijs', 414, $tableTop, 9, true, '0.39 0.45 0.56');
