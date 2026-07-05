@@ -69,12 +69,12 @@ export function createPrintableDocumentHtml(document: PrintableDocument) {
       <div class="company">
         ${document.companyLogoUrl ? `<img src="${escapeHtml(document.companyLogoUrl)}" alt="${escapeHtml(document.companyName)} logo">` : ''}
         <h2>${escapeHtml(document.companyName)}</h2>
-        <p>${escapeHtml(document.companyAddress ?? '')}<br>KvK ${escapeHtml(document.companyChamber)}<br>BTW ${escapeHtml(document.companyVat)}<br>${escapeHtml(document.companyEmail ?? '')}<br>${escapeHtml(document.companyPhone ?? '')}</p>
+        <p>${formatMultiline(document.companyAddress ?? '')}<br>KvK ${escapeHtml(document.companyChamber)}<br>BTW ${escapeHtml(document.companyVat)}<br>${escapeHtml(document.companyEmail ?? '')}<br>${escapeHtml(document.companyPhone ?? '')}</p>
       </div>
     </header>
     <section>
       <h2>Voor</h2>
-      <p>${escapeHtml(document.customerName)}<br>${escapeHtml(document.customerAddress)}</p>
+      <p>${escapeHtml(document.customerName)}<br>${formatMultiline(document.customerAddress)}</p>
     </section>
     <table>
       <thead><tr><th>Omschrijving</th><th class="right">Aantal</th><th class="right">Prijs</th><th class="right">BTW</th><th class="right">Totaal</th></tr></thead>
@@ -109,6 +109,10 @@ function escapeHtml(value: string) {
     .replaceAll('>', '&gt;')
     .replaceAll('"', '&quot;')
     .replaceAll("'", '&#039;')
+}
+
+function formatMultiline(value: string) {
+  return value.split(/\r?\n/).map((line) => escapeHtml(line.trim())).filter(Boolean).join('<br>')
 }
 
 function formatEuro(value: number) {

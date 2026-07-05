@@ -198,6 +198,12 @@ type InvoiceRow = {
   vat: number
 }
 
+function formatPostalAddress(input: { address?: string; postalCode?: string; city?: string }) {
+  const street = input.address?.trim()
+  const place = [input.postalCode, input.city].map((part) => part?.trim()).filter(Boolean).join(' ')
+  return [street, place].filter(Boolean).join('\n')
+}
+
 const companyId = 'comp_muldersign'
 
 const companies: Company[] = [
@@ -2393,7 +2399,7 @@ function InvoiceDetail({
       companyName: company.name,
       companyVat: company.vat,
       companyChamber: company.chamber,
-      companyAddress: `${company.address}, ${company.postalCode} ${company.city}`,
+      companyAddress: formatPostalAddress(company),
       companyEmail: company.email,
       companyPhone: company.phone,
       companyIban: company.iban,
@@ -2402,7 +2408,7 @@ function InvoiceDetail({
       paymentReference: `${settings.paymentReferencePrefix} ${invoice.number}`,
       footerNote: settings.documentFooter,
       customerName: customer?.name ?? 'Onbekende klant',
-      customerAddress: customer ? `${customer.address}, ${customer.postalCode} ${customer.city}` : '',
+      customerAddress: customer ? formatPostalAddress(customer) : '',
       date: invoice.date,
       dueDate: invoice.due,
       lines: invoice.items,
@@ -2720,7 +2726,7 @@ function QuoteDetail({
       companyName: company.name,
       companyVat: company.vat,
       companyChamber: company.chamber,
-      companyAddress: `${company.address}, ${company.postalCode} ${company.city}`,
+      companyAddress: formatPostalAddress(company),
       companyEmail: company.email,
       companyPhone: company.phone,
       companyIban: company.iban,
@@ -2729,7 +2735,7 @@ function QuoteDetail({
       paymentReference: `${settings.paymentReferencePrefix} ${quote.number}`,
       footerNote: settings.documentFooter,
       customerName: customer?.name ?? 'Onbekende klant',
-      customerAddress: customer ? `${customer.address}, ${customer.postalCode} ${customer.city}` : '',
+      customerAddress: customer ? formatPostalAddress(customer) : '',
       date: todayIso(),
       validUntil: quote.validUntil,
       lines: quote.items,
