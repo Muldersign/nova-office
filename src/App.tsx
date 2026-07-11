@@ -3975,7 +3975,7 @@ function DocumentsPage({
               <h3>{selectedIncomingInvoice.category}</h3>
               <p>Boek als inkoopfactuur, reserveer {eur.format(selectedIncomingInvoice.vat)} btw en match later automatisch met de banktransactie.</p>
               <div className="invoice-actions">
-                <button className="primary" onClick={() => onStatusChange(selectedIncomingInvoice.id, 'Geboekt')}>Boeking aanmaken</button>
+                <button className="primary" onClick={() => onStatusChange(selectedIncomingInvoice.id, 'Geboekt')}>Boeking opslaan</button>
                 <button className="ghost" onClick={() => onStatusChange(selectedIncomingInvoice.id, 'Controle nodig')}>Terug naar controle</button>
               </div>
             </div>
