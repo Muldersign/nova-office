@@ -9,6 +9,14 @@ export default defineConfig({
       output: {
         entryFileNames: 'assets/[name]-[hash].mjs',
         chunkFileNames: 'assets/[name]-[hash].mjs',
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined
+          if (id.includes('recharts')) return 'charts'
+          if (id.includes('lucide-react')) return 'icons'
+          if (id.includes('@supabase')) return 'supabase'
+          if (id.includes('react')) return 'react'
+          return 'vendor'
+        },
       },
     },
   },
