@@ -3905,11 +3905,19 @@ function DocumentsPage({
   onDelete: (invoiceId: string) => void
   onNavigate: (screen: Screen) => void
 }) {
+  const [selectedIncomingInvoiceId, setSelectedIncomingInvoiceId] = useState<string | null>(null)
+  const selectedIncomingInvoice = incomingInvoices.find((invoice) => invoice.id === selectedIncomingInvoiceId)
   const readyToBook = incomingInvoices.filter((invoice) => invoice.status === 'Klaar om te boeken').length
   const needsReview = incomingInvoices.filter((invoice) => invoice.status === 'Controle nodig').length
   const handleUpload = (event: ChangeEvent<HTMLInputElement>) => {
     onUpload(Array.from(event.target.files ?? []))
     event.target.value = ''
+  }
+  const openReview = (invoice: IncomingInvoice) => {
+    setSelectedIncomingInvoiceId(invoice.id)
+    if (invoice.status === 'Controle nodig' || invoice.status === 'Nieuw' || invoice.status === 'Herkennen') {
+      onStatusChange(invoice.id, 'Klaar om te boeken')
+    }
   }
 
   return (
@@ -3943,6 +3951,37 @@ function DocumentsPage({
           <span><ArrowRight size={18} /> Later koppelen aan banktransactie en btw-aangifte</span>
         </div>
       </section>
+      {selectedIncomingInvoice && (
+        <section className="panel wide incoming-review-panel">
+          <PanelHeader title="Controle inkomende factuur" action="Sluiten" onAction={() => setSelectedIncomingInvoiceId(null)} />
+          <div className="incoming-review-grid">
+            <div className="incoming-document-preview">
+              <FileText size={34} />
+              <strong>{selectedIncomingInvoice.fileName}</strong>
+              <span>Herkenning {selectedIncomingInvoice.confidence}% zeker</span>
+              <Status label={selectedIncomingInvoice.status} />
+            </div>
+            <div className="incoming-fields">
+              <span>Leverancier<strong>{selectedIncomingInvoice.supplier}</strong></span>
+              <span>Factuurnummer<strong>{selectedIncomingInvoice.invoiceNumber}</strong></span>
+              <span>Factuurdatum<strong>{selectedIncomingInvoice.invoiceDate}</strong></span>
+              <span>Vervaldatum<strong>{selectedIncomingInvoice.dueDate}</strong></span>
+              <span>Bedrag incl. btw<strong>{eur.format(selectedIncomingInvoice.amount)}</strong></span>
+              <span>BTW<strong>{eur.format(selectedIncomingInvoice.vat)}</strong></span>
+              <span>Categorie<strong>{selectedIncomingInvoice.category}</strong></span>
+            </div>
+            <div className="incoming-booking-card">
+              <p className="eyebrow">Boekingsvoorstel</p>
+              <h3>{selectedIncomingInvoice.category}</h3>
+              <p>Boek als inkoopfactuur, reserveer {eur.format(selectedIncomingInvoice.vat)} btw en match later automatisch met de banktransactie.</p>
+              <div className="invoice-actions">
+                <button className="primary" onClick={() => onStatusChange(selectedIncomingInvoice.id, 'Geboekt')}>Boeking aanmaken</button>
+                <button className="ghost" onClick={() => onStatusChange(selectedIncomingInvoice.id, 'Controle nodig')}>Terug naar controle</button>
+              </div>
+            </div>
+          </div>
+        </section>
+      )}
       <section className="panel wide">
         <PanelHeader title="Inkomende facturen" action="Naar boekhouding" onAction={() => onNavigate('accounting')} />
         <DataTable
@@ -3956,9 +3995,9 @@ function DocumentsPage({
             `${invoice.confidence}%`,
             <Status key={`${invoice.id}-status`} label={invoice.status} />,
             <div key={`${invoice.id}-actions`} className="table-actions">
-              <button className="table-link" onClick={() => onStatusChange(invoice.id, 'Klaar om te boeken')}>Controleren</button>
-              <button className="table-link" onClick={() => onStatusChange(invoice.id, 'Geboekt')}>Boeken</button>
-              <button className="table-link danger" onClick={() => onDelete(invoice.id)}>Verwijderen</button>
+              <button className="table-link" onClick={() => openReview(invoice)}>Controleren</button>
+              <button className="table-link" onClick={() => { setSelectedIncomingInvoiceId(invoice.id); onStatusChange(invoice.id, 'Geboekt') }}>Boeken</button>
+              <button className="table-link danger" onClick={() => { if (selectedIncomingInvoiceId === invoice.id) setSelectedIncomingInvoiceId(null); onDelete(invoice.id) }}>Verwijderen</button>
             </div>,
           ])}
         />

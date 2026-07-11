@@ -1684,6 +1684,87 @@ nav button:hover {
   color: #dc2626;
 }
 
+.incoming-review-panel {
+  animation: card-in 0.28s ease both;
+}
+
+.incoming-review-grid {
+  display: grid;
+  grid-template-columns: minmax(220px, 0.6fr) minmax(0, 1fr) minmax(280px, 0.82fr);
+  gap: 14px;
+  align-items: stretch;
+}
+
+.incoming-document-preview,
+.incoming-fields,
+.incoming-booking-card {
+  min-width: 0;
+  padding: 16px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: #fbfcff;
+}
+
+.incoming-document-preview {
+  display: grid;
+  gap: 10px;
+  align-content: center;
+  justify-items: start;
+}
+
+.incoming-document-preview svg {
+  color: var(--blue);
+}
+
+.incoming-document-preview strong,
+.incoming-document-preview span {
+  overflow-wrap: anywhere;
+}
+
+.incoming-document-preview span {
+  color: var(--muted);
+  font-weight: 800;
+}
+
+.incoming-fields {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.incoming-fields span {
+  display: grid;
+  gap: 4px;
+  color: var(--muted);
+  font-size: 13px;
+  font-weight: 800;
+}
+
+.incoming-fields strong {
+  color: var(--ink);
+  font-size: 15px;
+  overflow-wrap: anywhere;
+}
+
+.incoming-booking-card {
+  display: grid;
+  gap: 12px;
+  align-content: center;
+  background:
+    linear-gradient(135deg, rgba(24, 119, 242, 0.08), rgba(19, 163, 111, 0.08)),
+    #fff;
+}
+
+.incoming-booking-card h3,
+.incoming-booking-card p {
+  margin: 0;
+}
+
+.incoming-booking-card p:not(.eyebrow) {
+  color: var(--muted);
+  line-height: 1.55;
+}
+
 .checklist span,
 .checklist button {
   min-height: 62px;
@@ -2841,7 +2922,12 @@ th {
   }
 
   .report-workbench,
-  .bank-grid {
+  .bank-grid,
+  .incoming-review-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .incoming-fields {
     grid-template-columns: 1fr;
   }
 
