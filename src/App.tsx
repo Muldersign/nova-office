@@ -37,6 +37,7 @@ import {
 import { calculateTotals, isValidDutchVatNumber, isValidEmail, isValidIban, nextDocumentNumber, validateDocumentLines, validateRequiredCustomer } from './foundation/business'
 import { foundationRules, foundationSchema, tenantScopedTables } from './foundation/database'
 import { createPrintableDocumentHtml } from './foundation/documents'
+import { createIncomingInvoiceDraft, type IncomingInvoice, type IncomingInvoiceStatus } from './foundation/incomingInvoices'
 import { isUsageWithinPlan, planByName, planCatalog, usagePercentage, type PlanLimitKey, type PlanName, type PlanUsage } from './foundation/subscription'
 import { createDocumentEmail, createInviteEmail, createInviteToken, safeDocumentFilename } from './foundation/workflows'
 import { publicAuthRedirectUrl, submitAuth, updatePassword, type AuthMode } from './services/authService'
@@ -180,24 +181,6 @@ type Quote = {
   status: QuoteStatus
   validUntil: string
   items: InvoiceRow[]
-}
-
-type IncomingInvoiceStatus = 'Nieuw' | 'Herkennen' | 'Controle nodig' | 'Klaar om te boeken' | 'Geboekt'
-
-type IncomingInvoice = {
-  id: string
-  companyId: string
-  fileName: string
-  uploadedAt: string
-  supplier: string
-  invoiceNumber: string
-  invoiceDate: string
-  dueDate: string
-  amount: number
-  vat: number
-  category: string
-  confidence: number
-  status: IncomingInvoiceStatus
 }
 
 type AuditEvent = {
@@ -971,14 +954,20 @@ function App() {
     }
   }
 
-  const addIncomingInvoices = (files: File[]) => {
+  const addIncomingInvoices = async (files: File[]) => {
     const supportedFiles = files.filter((file) => /pdf|png|jpe?g|webp/i.test(file.type) || /\.(pdf|png|jpe?g|webp)$/i.test(file.name))
     if (supportedFiles.length === 0) {
       setSyncMessage('Upload een PDF, JPG, PNG of WebP factuur.')
       return
     }
 
-    const nextRecords = supportedFiles.map((file) => createIncomingInvoiceDraft(file, activeCompanyId))
+    setSyncMessage('Inkomende factuur herkennen...')
+    const nextRecords = await Promise.all(supportedFiles.map((file) => createIncomingInvoiceDraft({
+      file,
+      companyId: activeCompanyId,
+      id: createRecordId('incoming'),
+      today: todayIso(),
+    })))
     setIncomingInvoiceRecords((records) => [...nextRecords, ...records])
     nextRecords.forEach((record) => appendAudit(record.companyId, `Inkomende factuur herkend: ${record.fileName}`, 'invoice', record.id))
     setSyncMessage(`${nextRecords.length} inkomende factuur${nextRecords.length === 1 ? '' : 'en'} klaargezet voor controle.`)
@@ -4126,37 +4115,6 @@ function updateRow(
 
 function todayIso() {
   return new Date().toISOString().slice(0, 10)
-}
-
-function createIncomingInvoiceDraft(file: File, companyId: string): IncomingInvoice {
-  const cleanName = file.name.replace(/\.[^.]+$/, '').replace(/[_-]+/g, ' ').trim()
-  const supplier = cleanName.split(/\s+/).slice(0, 3).join(' ') || 'Onbekende leverancier'
-  const baseAmount = Math.max(24.2, Math.round(((file.size % 180000) / 100 + 86) * 100) / 100)
-  const amount = Math.round(baseAmount * 100) / 100
-  const vat = Math.round((amount - amount / 1.21) * 100) / 100
-  const invoiceDate = new Date(file.lastModified || Date.now()).toISOString().slice(0, 10)
-
-  return {
-    id: createRecordId('incoming'),
-    companyId,
-    fileName: file.name,
-    uploadedAt: new Date().toISOString(),
-    supplier,
-    invoiceNumber: `INK-${todayIso().slice(0, 4)}-${String(file.size % 10000).padStart(4, '0')}`,
-    invoiceDate,
-    dueDate: addDaysFromIso(invoiceDate, 30),
-    amount,
-    vat,
-    category: 'Inkoopkosten',
-    confidence: Math.min(96, 74 + (file.name.length % 19)),
-    status: 'Controle nodig',
-  }
-}
-
-function addDaysFromIso(date: string, days: number) {
-  const next = new Date(date)
-  next.setDate(next.getDate() + days)
-  return next.toISOString().slice(0, 10)
 }
 
 function addDaysIso(days: number) {
