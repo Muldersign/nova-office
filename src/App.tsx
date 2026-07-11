@@ -981,6 +981,10 @@ function App() {
     }
   }
 
+  const updateIncomingInvoice = (invoiceId: string, patch: Partial<IncomingInvoice>) => {
+    setIncomingInvoiceRecords((records) => records.map((record) => (record.id === invoiceId ? { ...record, ...patch } : record)))
+  }
+
   const deleteIncomingInvoice = (invoiceId: string) => {
     const incomingInvoice = incomingInvoiceRecords.find((record) => record.id === invoiceId)
     setIncomingInvoiceRecords((records) => records.filter((record) => record.id !== invoiceId))
@@ -1498,6 +1502,7 @@ function App() {
             quotes={companyQuotes}
             incomingInvoices={companyIncomingInvoices}
             onUpload={addIncomingInvoices}
+            onUpdate={updateIncomingInvoice}
             onStatusChange={updateIncomingInvoiceStatus}
             onDelete={deleteIncomingInvoice}
             onNavigate={navigate}
@@ -3882,6 +3887,7 @@ function DocumentsPage({
   quotes,
   incomingInvoices,
   onUpload,
+  onUpdate,
   onStatusChange,
   onDelete,
   onNavigate,
@@ -3890,6 +3896,7 @@ function DocumentsPage({
   quotes: Quote[]
   incomingInvoices: IncomingInvoice[]
   onUpload: (files: File[]) => void
+  onUpdate: (invoiceId: string, patch: Partial<IncomingInvoice>) => void
   onStatusChange: (invoiceId: string, status: IncomingInvoiceStatus) => void
   onDelete: (invoiceId: string) => void
   onNavigate: (screen: Screen) => void
@@ -3907,6 +3914,9 @@ function DocumentsPage({
     if (invoice.status === 'Controle nodig' || invoice.status === 'Nieuw' || invoice.status === 'Herkennen') {
       onStatusChange(invoice.id, 'Klaar om te boeken')
     }
+  }
+  const updateSelected = (patch: Partial<IncomingInvoice>) => {
+    if (selectedIncomingInvoice) onUpdate(selectedIncomingInvoice.id, patch)
   }
 
   return (
@@ -3951,13 +3961,13 @@ function DocumentsPage({
               <Status label={selectedIncomingInvoice.status} />
             </div>
             <div className="incoming-fields">
-              <span>Leverancier<strong>{selectedIncomingInvoice.supplier}</strong></span>
-              <span>Factuurnummer<strong>{selectedIncomingInvoice.invoiceNumber}</strong></span>
-              <span>Factuurdatum<strong>{selectedIncomingInvoice.invoiceDate}</strong></span>
-              <span>Vervaldatum<strong>{selectedIncomingInvoice.dueDate}</strong></span>
-              <span>Bedrag incl. btw<strong>{eur.format(selectedIncomingInvoice.amount)}</strong></span>
-              <span>BTW<strong>{eur.format(selectedIncomingInvoice.vat)}</strong></span>
-              <span>Categorie<strong>{selectedIncomingInvoice.category}</strong></span>
+              <label>Leverancier<input value={selectedIncomingInvoice.supplier} onChange={(event) => updateSelected({ supplier: event.target.value })} /></label>
+              <label>Factuurnummer<input value={selectedIncomingInvoice.invoiceNumber} onChange={(event) => updateSelected({ invoiceNumber: event.target.value })} /></label>
+              <label>Factuurdatum<input type="date" value={selectedIncomingInvoice.invoiceDate} onChange={(event) => updateSelected({ invoiceDate: event.target.value })} /></label>
+              <label>Vervaldatum<input type="date" value={selectedIncomingInvoice.dueDate} onChange={(event) => updateSelected({ dueDate: event.target.value })} /></label>
+              <label>Bedrag incl. btw<input type="number" min="0" step="0.01" value={selectedIncomingInvoice.amount} onChange={(event) => updateSelected({ amount: Number(event.target.value) })} /></label>
+              <label>BTW<input type="number" min="0" step="0.01" value={selectedIncomingInvoice.vat} onChange={(event) => updateSelected({ vat: Number(event.target.value) })} /></label>
+              <label>Categorie<input value={selectedIncomingInvoice.category} onChange={(event) => updateSelected({ category: event.target.value })} /></label>
             </div>
             <div className="incoming-booking-card">
               <p className="eyebrow">Boekingsvoorstel</p>

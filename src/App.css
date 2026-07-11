@@ -1732,7 +1732,8 @@ nav button:hover {
   gap: 10px;
 }
 
-.incoming-fields span {
+.incoming-fields span,
+.incoming-fields label {
   display: grid;
   gap: 4px;
   color: var(--muted);
@@ -1740,10 +1741,22 @@ nav button:hover {
   font-weight: 800;
 }
 
-.incoming-fields strong {
+.incoming-fields strong,
+.incoming-fields input {
   color: var(--ink);
   font-size: 15px;
   overflow-wrap: anywhere;
+}
+
+.incoming-fields input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  padding: 0;
+  background: transparent;
+  font: inherit;
+  font-weight: 800;
+  outline: none;
 }
 
 .incoming-booking-card {
