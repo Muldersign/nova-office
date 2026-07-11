@@ -7,8 +7,6 @@ export default defineConfig({
   build: {
     rollupOptions: {
       output: {
-        entryFileNames: 'assets/[name]-[hash].mjs',
-        chunkFileNames: 'assets/[name]-[hash].mjs',
         manualChunks(id) {
           if (!id.includes('node_modules')) return undefined
           if (id.includes('recharts')) return 'charts'
