@@ -8,6 +8,7 @@ export type RemoteWorkspace = {
   customers: Array<Record<string, unknown>>
   invoices: Array<Record<string, unknown>>
   quotes: Array<Record<string, unknown>>
+  incomingInvoices: Array<Record<string, unknown>>
   auditEvents: Array<Record<string, unknown>>
 }
 
@@ -53,6 +54,8 @@ export async function loadRemoteWorkspace(client: SupabaseClient): Promise<Remot
     return null
   }
 
+  const incomingInvoices = await client.from('incoming_invoices').select('*').order('created_at', { ascending: false })
+
   return {
     companies: companies.data.map(toCompany),
     companySettings: settings.data.map(toCompanySettings),
@@ -61,6 +64,7 @@ export async function loadRemoteWorkspace(client: SupabaseClient): Promise<Remot
     customers: customers.data.map(toCustomer),
     invoices: invoices.data.map(toInvoice),
     quotes: quotes.data.map(toQuote),
+    incomingInvoices: incomingInvoices.error ? [] : incomingInvoices.data.map(toIncomingInvoice),
     auditEvents: auditEvents.data.map(toAuditEvent),
   }
 }
@@ -187,6 +191,27 @@ export async function upsertRemoteQuote(client: SupabaseClient, quote: DocumentR
   })
   throwIfRemoteError(error)
   await replaceLineItems(client, 'quote_items', quote.id, quote.companyId, quote.items)
+}
+
+export async function upsertRemoteIncomingInvoice(client: SupabaseClient, incomingInvoice: Record<string, unknown>) {
+  if (!isUuid(String(incomingInvoice.id)) || !isUuid(String(incomingInvoice.companyId))) return
+  const { error } = await client.from('incoming_invoices').upsert({
+    id: incomingInvoice.id,
+    company_id: incomingInvoice.companyId,
+    file_name: incomingInvoice.fileName,
+    supplier: incomingInvoice.supplier,
+    invoice_number: incomingInvoice.invoiceNumber,
+    invoice_date: incomingInvoice.invoiceDate,
+    due_date: incomingInvoice.dueDate,
+    total: incomingInvoice.amount,
+    vat_total: incomingInvoice.vat,
+    category: incomingInvoice.category,
+    confidence: incomingInvoice.confidence,
+    status: incomingInvoice.status,
+    uploaded_at: incomingInvoice.uploadedAt,
+    updated_at: new Date().toISOString(),
+  })
+  throwIfRemoteError(error)
 }
 
 export async function deleteRemoteRecord(client: SupabaseClient, table: string, id: string) {
@@ -345,6 +370,24 @@ function toQuote(row: Record<string, unknown>) {
     status: row.status,
     validUntil: row.valid_until,
     items: mapLineItems(row.quote_items),
+  }
+}
+
+function toIncomingInvoice(row: Record<string, unknown>) {
+  return {
+    id: row.id,
+    companyId: row.company_id,
+    fileName: row.file_name,
+    uploadedAt: row.uploaded_at ?? row.created_at,
+    supplier: row.supplier,
+    invoiceNumber: row.invoice_number,
+    invoiceDate: row.invoice_date,
+    dueDate: row.due_date,
+    amount: row.total,
+    vat: row.vat_total,
+    category: row.category,
+    confidence: row.confidence,
+    status: row.status,
   }
 }
 

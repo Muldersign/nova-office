@@ -47,6 +47,7 @@ import {
   loadRemoteWorkspace,
   upsertRemoteCompany,
   upsertRemoteCustomer,
+  upsertRemoteIncomingInvoice,
   upsertRemoteInvoice,
   upsertRemoteProduct,
   upsertRemoteQuote,
@@ -566,6 +567,7 @@ function rememberRemoteWorkspace(remote: {
   customers: unknown[]
   invoices: unknown[]
   quotes: unknown[]
+  incomingInvoices: unknown[]
   auditEvents: unknown[]
 }) {
   const remoteCompanyId = String(remote.companies[0]?.id ?? '')
@@ -580,6 +582,7 @@ function rememberRemoteWorkspace(remote: {
   writeWorkspaceRecords(workspaceKeys.customers, remote.customers)
   writeWorkspaceRecords(workspaceKeys.invoices, remote.invoices)
   writeWorkspaceRecords(workspaceKeys.quotes, remote.quotes)
+  writeWorkspaceRecords(workspaceKeys.incomingInvoices, remote.incomingInvoices)
   writeWorkspaceRecords(workspaceKeys.auditEvents, remote.auditEvents)
   window.localStorage.setItem(sessionKeys.activeCompanyId, remoteCompanyId)
   window.localStorage.setItem(sessionKeys.onboarded, 'true')
@@ -752,6 +755,7 @@ function App() {
     setCustomerRecords(remote.customers as Customer[])
     setInvoiceRecords(remote.invoices as Invoice[])
     setQuoteRecords(remote.quotes as Quote[])
+    setIncomingInvoiceRecords(remote.incomingInvoices as IncomingInvoice[])
     setAuditRecords(remote.auditEvents as AuditEvent[])
 
     const remoteCompanyId = rememberRemoteWorkspace(remote)
@@ -969,25 +973,36 @@ function App() {
       today: todayIso(),
     })))
     setIncomingInvoiceRecords((records) => [...nextRecords, ...records])
+    await Promise.all(nextRecords.map((record) => syncRemote((async () => upsertRemoteIncomingInvoice(getSupabaseClient()!, record)), 'Inkomende factuur opgeslagen.')))
     nextRecords.forEach((record) => appendAudit(record.companyId, `Inkomende factuur herkend: ${record.fileName}`, 'invoice', record.id))
     setSyncMessage(`${nextRecords.length} inkomende factuur${nextRecords.length === 1 ? '' : 'en'} klaargezet voor controle.`)
   }
 
-  const updateIncomingInvoiceStatus = (invoiceId: string, status: IncomingInvoiceStatus) => {
-    setIncomingInvoiceRecords((records) => records.map((record) => (record.id === invoiceId ? { ...record, status } : record)))
+  const updateIncomingInvoiceStatus = async (invoiceId: string, status: IncomingInvoiceStatus) => {
     const incomingInvoice = incomingInvoiceRecords.find((record) => record.id === invoiceId)
+    const nextIncomingInvoice = incomingInvoice ? { ...incomingInvoice, status } : null
+    setIncomingInvoiceRecords((records) => records.map((record) => (record.id === invoiceId ? { ...record, status } : record)))
+    if (nextIncomingInvoice) {
+      await syncRemote((async () => upsertRemoteIncomingInvoice(getSupabaseClient()!, nextIncomingInvoice)), 'Inkomende factuur opgeslagen.')
+    }
     if (incomingInvoice) {
       appendAudit(incomingInvoice.companyId, `Inkomende factuur ${incomingInvoice.fileName} gemarkeerd als ${status.toLowerCase()}`, 'invoice', invoiceId)
     }
   }
 
-  const updateIncomingInvoice = (invoiceId: string, patch: Partial<IncomingInvoice>) => {
+  const updateIncomingInvoice = async (invoiceId: string, patch: Partial<IncomingInvoice>) => {
+    const incomingInvoice = incomingInvoiceRecords.find((record) => record.id === invoiceId)
+    const nextIncomingInvoice = incomingInvoice ? { ...incomingInvoice, ...patch } : null
     setIncomingInvoiceRecords((records) => records.map((record) => (record.id === invoiceId ? { ...record, ...patch } : record)))
+    if (nextIncomingInvoice) {
+      await syncRemote((async () => upsertRemoteIncomingInvoice(getSupabaseClient()!, nextIncomingInvoice)), 'Inkomende factuur opgeslagen.')
+    }
   }
 
-  const deleteIncomingInvoice = (invoiceId: string) => {
+  const deleteIncomingInvoice = async (invoiceId: string) => {
     const incomingInvoice = incomingInvoiceRecords.find((record) => record.id === invoiceId)
     setIncomingInvoiceRecords((records) => records.filter((record) => record.id !== invoiceId))
+    await syncRemote((async () => deleteRemoteRecord(getSupabaseClient()!, 'incoming_invoices', invoiceId)), 'Inkomende factuur verwijderd.')
     if (incomingInvoice) {
       appendAudit(incomingInvoice.companyId, `Inkomende factuur verwijderd: ${incomingInvoice.fileName}`, 'invoice', invoiceId)
     }

@@ -13,6 +13,7 @@ Brenqo is een moderne SaaS-webapp voor ondernemers. De MVP-fundering richt zich 
 - Teamleden uitnodigen en rollen wijzigen
 - Bedrijfsinstellingen per administratie
 - HTML-documentdownloads voor facturen en offertes
+- Inkomende facturen uploaden, herkennen, controleren en boeken
 - Backend/API-contracten en SQL-migraties
 - Workspace adapter als tussenlaag richting Supabase
 
@@ -45,13 +46,27 @@ VITE_MAIL_FROM=send@brenqo.nl
 
 Het gekoppelde Supabase-project is `iwgdsinkprrfarrxrpik`. De anon public key mag in frontend-builds gebruikt worden. Zet geen wachtwoorden, SMTP-passwords of service-role keys in Git. Die horen later in Cloud86/Plesk of Supabase secrets.
 
-Voer voor de echte databasefundering de migratie uit in de Supabase SQL editor:
+Voer voor de echte databasefundering de migraties uit in de Supabase SQL editor:
 
 ```bash
 database/migrations/002_supabase_auth_rls.sql
+database/migrations/003_company_workspace_rpc.sql
+database/migrations/004_document_settings.sql
+database/migrations/005_team_invites.sql
+database/migrations/006_incoming_invoices.sql
 ```
 
-Deze migratie maakt Supabase Auth-profielen, bedrijven, memberships, instellingen, klanten, producten, facturen, offertes, regels, audit events en RLS-policies aan. Nieuwe registraties gebruiken daarna `bootstrap_workspace` om automatisch een eerste bedrijf en eigenaarrol klaar te zetten.
+Deze migraties maken Supabase Auth-profielen, bedrijven, memberships, instellingen, klanten, producten, facturen, offertes, inkomende facturen, regels, audit events en RLS-policies aan. Nieuwe registraties gebruiken daarna `bootstrap_workspace` om automatisch een eerste bedrijf en eigenaarrol klaar te zetten.
+
+## Module: Inkomende Facturen
+
+De uploadflow staat in `src/foundation/incomingInvoices.ts` en verwerkt PDF-tekst client-side naar leverancier, factuurnummer, datums, totaalbedrag, btw, categorie en zekerheidsscore. De app bewaart deze records lokaal voor directe respons en synchroniseert ze via `upsertRemoteIncomingInvoice` naar Supabase zodra `database/migrations/006_incoming_invoices.sql` is uitgevoerd.
+
+Belangrijk gedrag:
+
+- Bestaande foutieve browserrecords kunnen in het controlescherm handmatig worden gecorrigeerd.
+- Nieuwe uploads gebruiken echte PDF-tekstherkenning voordat fallback op bestandsnaam wordt gebruikt.
+- Statussen lopen van `Controle nodig` naar `Klaar om te boeken` en daarna `Geboekt`.
 
 ## Development
 
